@@ -9,6 +9,8 @@ Il fonctionne **entièrement sans Internet** (base de données locale sur chaque
 |---|---|---|
 | ![](docs/03-planning.png) | ![](docs/07-order.png) | ![](docs/08-payment.png) |
 
+📘 **Manuel d’utilisation illustré (PDF, 44 pages)** : [docs/Hospitalis-Manuel.pdf](docs/Hospitalis-Manuel.pdf)
+
 ---
 
 ## Fonctionnalités
