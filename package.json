@@ -11,7 +11,7 @@
     "dev": "concurrently -k -n vite,app \"vite\" \"wait-on tcp:5173 && cross-env HOSPITALIS_DEV=1 electron .\"",
     "build": "vite build",
     "start": "vite build && electron .",
-    "dist:win": "vite build && electron-builder --win --x64",
+    "dist:win": "vite build && electron-builder --win --x64 --publish never",
     "test": "node --no-warnings --test tests/*.test.js"
   },
   "build": {
