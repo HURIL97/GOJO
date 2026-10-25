@@ -7,6 +7,7 @@ import {
 import { call, on } from './lib/api';
 import { AppCtx } from './lib/context';
 import { ago, initials } from './lib/format';
+import { ABOUT } from './lib/about';
 import { Toasts, ConfirmHost, toast } from './components/ui';
 import { ModalHost } from './components/modals';
 import Setup, { LockScreen } from './pages/Setup';
@@ -241,7 +242,7 @@ export default function App() {
         <aside className="sidebar">
           <div className="brand">
             <div className="brand-logo"><Sparkles size={20} /></div>
-            <div><b>Officia</b><small>{settings.organisation || 'Assistant administratif'}</small></div>
+            <div><b>OfficiaTech</b><small>{settings.organisation || 'Assistant administratif'}</small></div>
           </div>
           <button className="btn primary" style={{ margin: '0 4px 6px', height: 40 }} onClick={() => setQuick(true)}><Plus size={17} />Nouveau</button>
           {groups.map((g) => (
@@ -265,6 +266,7 @@ export default function App() {
               <button className="btn ghost sm icon right" title="Thème clair / sombre" onClick={toggleTheme}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</button>
               <button className="btn ghost sm icon" title="Verrouiller" onClick={lock}><Lock size={16} /></button>
             </div>
+            <div className="muted" style={{ fontSize: 10.5, textAlign: 'center', lineHeight: 1.4 }}>{ABOUT.name} v{ABOUT.version}<br />par {ABOUT.author}</div>
           </div>
         </aside>
         <main className="main">

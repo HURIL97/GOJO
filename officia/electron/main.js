@@ -8,7 +8,7 @@ const { createMail } = require('./mail');
 
 process.removeAllListeners('warning'); // masque l'avertissement « SQLite experimental »
 app.commandLine.appendSwitch('lang', 'fr-FR');
-app.setAppUserModelId('com.officia.app'); // nécessaire aux notifications Windows
+app.setAppUserModelId('com.officiatech.app'); // nécessaire aux notifications Windows
 
 const DEV = process.env.OFFICIA_DEV === '1';
 let win;
@@ -66,7 +66,7 @@ function showWindow(link) {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1440, height: 900, minWidth: 1100, minHeight: 700, title: 'Officia', icon: iconPath,
+    width: 1440, height: 900, minWidth: 1100, minHeight: 700, title: 'OfficiaTech', icon: iconPath,
     backgroundColor: '#0b0f1e', show: false, autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
@@ -82,9 +82,9 @@ function createWindow() {
 
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }));
-  tray.setToolTip('Officia');
+  tray.setToolTip('OfficiaTech');
   const menu = Menu.buildFromTemplate([
-    { label: 'Ouvrir Officia', click: () => showWindow() },
+    { label: 'Ouvrir OfficiaTech', click: () => showWindow() },
     { label: 'Ma journée', click: () => showWindow({ page: 'home' }) },
     { label: 'Agenda', click: () => showWindow({ page: 'agenda' }) },
     { type: 'separator' },
@@ -281,14 +281,14 @@ function registerIpc() {
     return filePath;
   });
   handle('backup.create', async () => {
-    const { canceled, filePath } = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('documents'), `officia-sauvegarde-${today()}.db`), filters: [{ name: 'Sauvegarde Officia', extensions: ['db'] }] });
+    const { canceled, filePath } = await dialog.showSaveDialog(win, { defaultPath: path.join(app.getPath('documents'), `officia-sauvegarde-${today()}.db`), filters: [{ name: 'Sauvegarde OfficiaTech', extensions: ['db'] }] });
     if (canceled) return null;
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     db.db.exec(`VACUUM INTO '${filePath.replace(/'/g, "''")}'`);
     return filePath;
   });
   handle('backup.restore', async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog(win, { filters: [{ name: 'Sauvegarde Officia', extensions: ['db'] }], properties: ['openFile'] });
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, { filters: [{ name: 'Sauvegarde OfficiaTech', extensions: ['db'] }], properties: ['openFile'] });
     if (canceled || !filePaths[0]) return false;
     const { response } = await dialog.showMessageBox(win, { type: 'warning', buttons: ['Annuler', 'Restaurer'], defaultId: 0, message: 'Remplacer toutes les données par cette sauvegarde ?', detail: 'L’application va redémarrer.' });
     if (response !== 1) return false;

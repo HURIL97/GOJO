@@ -1,4 +1,4 @@
-> Ce dépôt contient deux applications Windows : **Hospitalis** (hôtel · bar · restaurant, ci-dessous) et **[Officia](officia/README.md)** (assistant administratif pour secrétariat de direction).
+> Ce dépôt contient deux applications Windows : **Hospitalis** (hôtel · bar · restaurant, ci-dessous) et **[OfficiaTech](officia/README.md)** v1.00 (assistant administratif pour secrétariat de direction, développé par M. TETCHI KOREY JOEL).
 
 # Hospitalis — Hôtel · Bar · Restaurant
 

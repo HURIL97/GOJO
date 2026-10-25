@@ -1,4 +1,6 @@
-# Officia — l’assistant administratif tout-en-un
+# OfficiaTech — l’assistant administratif tout-en-un
+
+**Version 1.00** — développé par **M. TETCHI KOREY JOEL**, Comptable · +225 07 19 37 80 57 / +225 01 60 29 61 49 · heliontech97@gmail.com
 
 Application Windows pour **assistante de direction et secrétariat** : agenda, rendez-vous, réunions et procès-verbaux, messagerie, courrier, appels, tâches, rappels et notifications, réunis dans une interface simple, élégante et professionnelle.
 Tout fonctionne **sans Internet** (base locale sur le poste) ; la messagerie envoie et relève vos e-mails dès que la connexion est disponible.
@@ -58,15 +60,15 @@ Annuaire avec favoris, étiquettes, coordonnées, et **historique** par contact 
 
 ## Installation sur Windows
 
-1. Sur GitHub, onglet **Actions** › **« Officia — installateur Windows »** (lancé automatiquement à chaque modification du dossier `officia/`, ou via **Run workflow**).
-2. Téléchargez l’artefact **Officia-Windows** : il contient `Officia-Setup-1.0.0.exe` et une version portable.
+1. Sur GitHub, onglet **Actions** › **« OfficiaTech — installateur Windows »** (lancé automatiquement à chaque modification du dossier `officia/`, ou via **Run workflow**).
+2. Téléchargez l’artefact **OfficiaTech-Windows** : il contient `OfficiaTech-Setup-1.00.exe` et une version portable.
 3. Lancez l’installateur. Si SmartScreen s’affiche : **Informations complémentaires** › **Exécuter quand même** (application non signée).
 
 Construire soi-même sur un PC Windows (Node.js 24) :
 ```bash
 cd officia
 npm install
-npm run dist:win     # → release/Officia-Setup-1.0.0.exe
+npm run dist:win     # → release/OfficiaTech-Setup-1.00.exe
 ```
 
 ### Premier démarrage
@@ -92,4 +94,4 @@ npm test        # agenda, récurrences, conflits, PV → tâches, notifications,
 | `electron/main.js` | Fenêtre, zone de notification, notifications Windows, PDF, IPC, sauvegardes |
 | `src/` | Interface React |
 
-Données : `%APPDATA%\Officia\data\` (sauvegardes dans `sauvegardes\`, pièces jointes dans `fichiers\`).
+Données : `%APPDATA%\OfficiaTech\data\` (sauvegardes dans `sauvegardes\`, pièces jointes dans `fichiers\`).

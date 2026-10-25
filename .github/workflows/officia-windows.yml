@@ -1,4 +1,4 @@
-name: Officia — installateur Windows
+name: OfficiaTech — installateur Windows
 
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - uses: actions/upload-artifact@v4
         with:
-          name: Officia-Windows
+          name: OfficiaTech-Windows
           path: |
             officia/release/*.exe
             officia/release/*.zip

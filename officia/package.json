@@ -1,10 +1,13 @@
 {
   "name": "officia",
-  "productName": "Officia",
+  "productName": "OfficiaTech",
   "version": "1.0.0",
-  "description": "Officia — l'assistant administratif tout-en-un : agenda, réunions et PV, rendez-vous, mails, courrier, tâches, rappels et notifications",
+  "description": "OfficiaTech — l'assistant administratif tout-en-un : agenda, réunions et PV, rendez-vous, mails, courrier, tâches, rappels et notifications",
   "main": "electron/main.js",
-  "author": "Officia",
+  "author": {
+    "name": "TETCHI KOREY JOEL",
+    "email": "heliontech97@gmail.com"
+  },
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
@@ -15,8 +18,8 @@
     "test": "node --no-warnings --test tests/*.test.js"
   },
   "build": {
-    "appId": "com.officia.app",
-    "productName": "Officia",
+    "appId": "com.officiatech.app",
+    "productName": "OfficiaTech",
     "directories": {
       "output": "release"
     },
@@ -41,15 +44,16 @@
         }
       ],
       "icon": "build/icon.png",
-      "artifactName": "Officia-${version}-portable.${ext}"
+      "artifactName": "OfficiaTech-1.00-portable.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "Officia",
-      "artifactName": "Officia-Setup-${version}.${ext}"
-    }
+      "shortcutName": "OfficiaTech",
+      "artifactName": "OfficiaTech-Setup-1.00.${ext}"
+    },
+    "copyright": "© 2026 M. TETCHI KOREY JOEL"
   },
   "dependencies": {
     "imapflow": "^2.9.1",

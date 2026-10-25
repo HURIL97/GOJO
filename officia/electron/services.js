@@ -1,4 +1,4 @@
-// Logique métier d'Officia : agenda, réunions et PV, tâches, rappels, notifications, courrier, appels, recherche.
+// Logique métier d'OfficiaTech : agenda, réunions et PV, tâches, rappels, notifications, courrier, appels, recherche.
 const crypto = require('node:crypto');
 const { stamp } = require('./db');
 
@@ -527,7 +527,7 @@ function createServices(db) {
 
       db.save('notes', { title: 'Codes d’accès salle du Conseil', body: 'Badge visiteurs : demander à l’accueil.\nVidéoprojecteur : télécommande dans le tiroir.', color: '#f59f00', pinned: 1 });
       db.save('notes', { title: 'À ne pas oublier', body: '• Commander les cartes de visite de M. Yao\n• Fleurs pour l’anniversaire de Mme Koné', color: '#7c5cff' });
-      notify({ kind: 'info', title: 'Bienvenue dans Officia', body: 'Vos données de démonstration sont prêtes : explorez l’agenda, les réunions et la messagerie.', link_type: 'home', dedupe: 'welcome' });
+      notify({ kind: 'info', title: 'Bienvenue dans OfficiaTech', body: 'Vos données de démonstration sont prêtes : explorez l’agenda, les réunions et la messagerie.', link_type: 'home', dedupe: 'welcome' });
       return true;
     });
 

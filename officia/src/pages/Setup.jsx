@@ -3,6 +3,7 @@ import { Sparkles, CalendarDays, Users2, Mail, Delete } from 'lucide-react';
 import { call } from '../lib/api';
 import { Field, Input, toast } from '../components/ui';
 import { initials } from '../lib/format';
+import { ABOUT } from '../lib/about';
 
 export default function Setup({ onDone }) {
   const [f, setF] = useState({ user_name: '', user_title: 'Assistante de direction', organisation: '', manager_name: '', demo: true });
@@ -21,7 +22,7 @@ export default function Setup({ onDone }) {
       <div className="login-art" style={{ background: 'radial-gradient(800px 500px at 20% 10%, rgba(123,108,255,.42), transparent 60%), radial-gradient(700px 500px at 90% 90%, rgba(31,181,204,.32), transparent 60%), #0b0d1c' }}>
         <div className="brand" style={{ padding: 0 }}>
           <div className="brand-logo"><Sparkles size={20} /></div>
-          <div><b>Officia</b><small style={{ color: '#9aa6c4' }}>Assistant administratif</small></div>
+          <div><b>OfficiaTech</b><small style={{ color: '#9aa6c4' }}>Assistant administratif · v{ABOUT.version}</small></div>
         </div>
         <div>
           <h1>Votre secrétariat, parfaitement orchestré.</h1>
@@ -32,11 +33,15 @@ export default function Setup({ onDone }) {
           <div><Users2 size={20} /><b>Réunions</b>Convocations et PV en PDF</div>
           <div><Mail size={20} /><b>Messagerie</b>Modèles, envoi hors ligne</div>
         </div>
+        <div style={{ color: '#9aa6c4', fontSize: 12.5, lineHeight: 1.6, borderTop: '1px solid rgba(255,255,255,.1)', paddingTop: 14, maxWidth: 560 }}>
+          <b style={{ color: '#eef2fb' }}>{ABOUT.name} — version {ABOUT.version}</b><br />
+          Développé par <span style={{ whiteSpace: 'nowrap' }}>{ABOUT.author}</span>, {ABOUT.role}<br />{ABOUT.phones.map((t) => <span key={t} style={{ whiteSpace: 'nowrap', marginRight: 12 }}>{t}</span>)}<span style={{ whiteSpace: 'nowrap' }}>{ABOUT.email}</span>
+        </div>
       </div>
       <div className="login-panel">
         <form className="login-box col" style={{ gap: 14, width: 380 }} onSubmit={submit}>
           <h2 style={{ margin: 0 }}>Bienvenue</h2>
-          <p className="muted" style={{ margin: 0 }}>Quelques informations pour personnaliser Officia.</p>
+          <p className="muted" style={{ margin: 0 }}>Quelques informations pour personnaliser OfficiaTech.</p>
           <Field label="Votre nom"><Input value={f.user_name} onChange={set('user_name')} placeholder="Awa Kouassi" /></Field>
           <Field label="Votre fonction"><Input value={f.user_title} onChange={set('user_title')} /></Field>
           <Field label="Organisation"><Input value={f.organisation} onChange={set('organisation')} placeholder="Société, ministère, cabinet…" /></Field>
@@ -70,7 +75,7 @@ export function LockScreen({ settings, onUnlock }) {
       <div className="card" style={{ width: 380, padding: 32, textAlign: 'center' }}>
         <div className="avatar" style={{ width: 64, height: 64, fontSize: 22, margin: '0 auto 12px' }}>{initials(settings.user_name)}</div>
         <h2 style={{ margin: 0 }}>{settings.user_name}</h2>
-        <p className="muted" style={{ margin: '4px 0 0' }}>Officia est verrouillé</p>
+        <p className="muted" style={{ margin: '4px 0 0' }}>OfficiaTech est verrouillé</p>
         <div className={`pin-dots ${err ? 'shake' : ''}`}>{Array.from({ length: Math.max(4, pin.length) }).map((_, i) => <i key={i} className={i < pin.length ? 'on' : ''} />)}</div>
         <div className="pinpad">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok'].map((k) => (
@@ -79,6 +84,7 @@ export function LockScreen({ settings, onUnlock }) {
             </button>
           ))}
         </div>
+        <div className="muted small" style={{ marginTop: 18 }}>{ABOUT.name} v{ABOUT.version} · {ABOUT.author}</div>
       </div>
     </div>
   );

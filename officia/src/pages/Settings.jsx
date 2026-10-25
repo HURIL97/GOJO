@@ -4,6 +4,7 @@ import { call } from '../lib/api';
 import { useData, act } from '../lib/hooks';
 import { useApp } from '../lib/context';
 import { ago } from '../lib/format';
+import { ABOUT } from '../lib/about';
 import { Tabs, Card, Field, Input, Select, Empty, Badge, toast, Modal } from '../components/ui';
 import { EditModal } from '../components/crud';
 
@@ -41,7 +42,7 @@ function Notifications() {
   return (
     <div className="grid g2">
       <Card title="Notifications" right={<button className="btn primary" onClick={save}><Save size={16} />Enregistrer</button>}>
-        {check('notify_native', 'Notifications Windows', 'Une bulle s’affiche en bas à droite de l’écran, même si Officia est réduit.')}
+        {check('notify_native', 'Notifications Windows', 'Une bulle s’affiche en bas à droite de l’écran, même si OfficiaTech est réduit.')}
         {check('notify_sound', 'Son', 'Jouer le son de notification de Windows.')}
         <div className="form mt">
           <Field label="Rappel par défaut des rendez-vous"><Select value={f.default_reminder} onChange={set('default_reminder')} options={[['0', 'À l’heure'], ['5', '5 min avant'], ['10', '10 min avant'], ['15', '15 min avant'], ['30', '30 min avant'], ['60', '1 h avant']]} /></Field>
@@ -49,8 +50,8 @@ function Notifications() {
         </div>
       </Card>
       <Card title="Démarrage et fenêtre">
-        {check('start_with_windows', 'Lancer Officia au démarrage de Windows', 'L’application démarre discrètement dans la zone de notification.')}
-        {check('minimize_to_tray', 'Garder Officia actif à la fermeture', 'La croix réduit la fenêtre près de l’horloge : les rappels continuent de s’afficher.')}
+        {check('start_with_windows', 'Lancer OfficiaTech au démarrage de Windows', 'L’application démarre discrètement dans la zone de notification.')}
+        {check('minimize_to_tray', 'Garder OfficiaTech actif à la fermeture', 'La croix réduit la fenêtre près de l’horloge : les rappels continuent de s’afficher.')}
         <Field label="Relève de la messagerie (minutes)"><Input type="number" value={f.mail_sync_minutes} onChange={set('mail_sync_minutes')} /></Field>
       </Card>
     </div>
@@ -103,7 +104,7 @@ function MailAccounts() {
   const [rows, reload] = useData('mail.accounts');
   const [edit, setEdit] = useState(null);
   return (
-    <Card title="Comptes de messagerie" hint="Officia relève vos messages (IMAP) et les envoie (SMTP). Sans connexion, les envois patientent dans la boîte d’envoi." right={<button className="btn primary sm" onClick={() => setEdit({})}><Plus size={14} />Ajouter un compte</button>}>
+    <Card title="Comptes de messagerie" hint="OfficiaTech relève vos messages (IMAP) et les envoie (SMTP). Sans connexion, les envois patientent dans la boîte d’envoi." right={<button className="btn primary sm" onClick={() => setEdit({})}><Plus size={14} />Ajouter un compte</button>}>
       {(rows || []).map((a) => (
         <div key={a.id} className="list-row" style={{ cursor: 'pointer' }} onClick={() => setEdit(a)}>
           <div className="avatar" style={{ width: 36, height: 36 }}><Mail size={16} /></div>
@@ -111,7 +112,7 @@ function MailAccounts() {
           {a.last_error ? <Badge kind="bad">Erreur</Badge> : a.last_sync ? <Badge kind="good">Relevé {ago(a.last_sync)}</Badge> : <Badge>Jamais relevé</Badge>}
         </div>
       ))}
-      {rows && !rows.length && <Empty icon={Mail}>Aucun compte. Ajoutez votre adresse professionnelle pour envoyer convocations et PV directement depuis Officia.</Empty>}
+      {rows && !rows.length && <Empty icon={Mail}>Aucun compte. Ajoutez votre adresse professionnelle pour envoyer convocations et PV directement depuis OfficiaTech.</Empty>}
       {edit && <AccountModal data={edit} onClose={() => { setEdit(null); reload(); }} />}
     </Card>
   );
@@ -149,7 +150,7 @@ function Security() {
         <button className="btn primary" onClick={() => save(pin)}>{settings.has_lock === '1' ? 'Changer le code' : 'Activer'}</button>
         {settings.has_lock === '1' && <button className="btn danger" onClick={() => save('')}>Désactiver</button>}
       </div>
-      <p className="muted small mt">{settings.has_lock === '1' ? 'Le code est demandé à l’ouverture d’Officia et après un clic sur le cadenas.' : 'Aucun code : Officia s’ouvre directement.'}</p>
+      <p className="muted small mt">{settings.has_lock === '1' ? 'Le code est demandé à l’ouverture d’OfficiaTech et après un clic sur le cadenas.' : 'Aucun code : OfficiaTech s’ouvre directement.'}</p>
     </Card>
   );
 }
@@ -167,7 +168,16 @@ function Backup() {
         </div>
       </Card>
       <Card title="À propos">
-        {info && <><div className="list-row"><span>Version</span><b className="right">Officia {info.version}</b></div><div className="list-row"><span>Données</span><code className="right small muted" style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis' }}>{info.dataDir}</code></div></>}
+        <div className="row" style={{ gap: 14, marginBottom: 6 }}>
+          <div className="brand-logo" style={{ width: 46, height: 46 }}><BellRing size={20} /></div>
+          <div><b style={{ fontSize: 17 }}>{ABOUT.name}</b><div className="muted">Version {ABOUT.version} · Assistant administratif tout-en-un</div></div>
+        </div>
+        <div className="list-row"><span>Développé par</span><b className="right">{ABOUT.author}</b></div>
+        <div className="list-row"><span>Fonction</span><span className="right">{ABOUT.role}</span></div>
+        <div className="list-row"><span>Téléphone</span><span className="right" style={{ userSelect: 'text' }}>{ABOUT.phones.join(' / ')}</span></div>
+        <div className="list-row"><span>E-mail</span><a className="right" style={{ color: 'var(--accent)' }} href={`mailto:${ABOUT.email}`}>{ABOUT.email}</a></div>
+        <div className="list-row"><span>Copyright</span><span className="right muted">© {ABOUT.year} {ABOUT.author}</span></div>
+        {info && <><div className="list-row"><span>Données</span><code className="right small muted" style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis' }}>{info.dataDir}</code></div></>}
         <div className="list-row"><span>Raccourcis</span><span className="right muted small">Ctrl+K rechercher · Ctrl+N nouveau</span></div>
       </Card>
     </div>
@@ -180,7 +190,7 @@ export default function Settings() {
   return (
     <div className="col" style={{ gap: 16 }}>
       <div className="toolbar" style={{ marginBottom: 0 }}>
-        <Tabs value={tab} onChange={setTab} tabs={[['profile', 'Profil', UserRound], ['notif', 'Notifications', BellRing], ['mail', 'Messagerie', Mail], ['templates', 'Modèles', FileText], ['security', 'Sécurité', ShieldCheck], ['backup', 'Sauvegarde', HardDrive]]} />
+        <Tabs value={tab} onChange={setTab} tabs={[['profile', 'Profil', UserRound], ['notif', 'Notifications', BellRing], ['mail', 'Messagerie', Mail], ['templates', 'Modèles', FileText], ['security', 'Sécurité', ShieldCheck], ['backup', 'Sauvegarde & À propos', HardDrive]]} />
       </div>
       {tab === 'profile' && <Profile />}
       {tab === 'notif' && <Notifications />}
