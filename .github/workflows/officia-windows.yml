@@ -1,0 +1,47 @@
+name: Officia — installateur Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'officia/**'
+      - '.github/workflows/officia-windows.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: officia
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: officia
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run dist:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Officia-Windows
+          path: |
+            officia/release/*.exe
+            officia/release/*.zip
+          if-no-files-found: error

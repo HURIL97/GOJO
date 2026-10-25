@@ -1,3 +1,5 @@
+> Ce dépôt contient deux applications Windows : **Hospitalis** (hôtel · bar · restaurant, ci-dessous) et **[Officia](officia/README.md)** (assistant administratif pour secrétariat de direction).
+
 # Hospitalis — Hôtel · Bar · Restaurant
 
 Logiciel de gestion tout-en-un pour Windows : **hôtel, bar et restaurant dans une seule application**, avec un tableau de bord complet.

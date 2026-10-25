@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths-ignore:
+      - 'officia/**'
+      - '.github/workflows/officia-windows.yml'
 
 jobs:
   test:
