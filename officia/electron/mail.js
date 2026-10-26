@@ -57,13 +57,21 @@ function createMail(db, { encrypt, decrypt, filesDir }) {
     auth: { user: a.username, pass: a.password }, logger: false, socketTimeout: 30000,
   });
 
+  // Messages d'erreur compréhensibles (identifiants refusés, serveur introuvable…).
+  const explain = (e) => {
+    if (e.authenticationFailed || e.code === 'EAUTH' || e.responseCode === 535) return 'Identifiant ou mot de passe refusé par le serveur (Gmail/Yahoo : utilisez un mot de passe d’application)';
+    if (e.code === 'ENOTFOUND') return 'Serveur introuvable : vérifiez l’adresse du serveur';
+    if (e.code === 'ECONNREFUSED' || e.code === 'ETIMEDOUT' || e.code === 'ESOCKET') return `Connexion impossible au serveur (port ou pare-feu) : ${e.message}`;
+    return e.message;
+  };
+
   M.testAccount = async (id) => {
     const a = account(id);
     const res = { smtp: null, imap: null };
-    try { await transport(a).verify(); res.smtp = 'ok'; } catch (e) { res.smtp = e.message; }
+    try { await transport(a).verify(); res.smtp = 'ok'; } catch (e) { res.smtp = explain(e); }
     if (a.imap_host) {
       const c = imap(a);
-      try { await c.connect(); res.imap = 'ok'; await c.logout(); } catch (e) { res.imap = e.message; }
+      try { await c.connect(); res.imap = 'ok'; await c.logout(); } catch (e) { res.imap = explain(e); }
     }
     return res;
   };
@@ -141,7 +149,7 @@ function createMail(db, { encrypt, decrypt, filesDir }) {
     } catch (e) {
       const network = isNetworkError(e);
       db.save('mails', { id: row.id, tries: 1, error: network ? `En attente de connexion (${e.code || e.message})` : e.message });
-      if (!network) throw new Error(`Envoi refusé par le serveur : ${e.message}`);
+      if (!network) throw new Error(`Envoi refusé par le serveur : ${explain(e)}`);
       return { status: 'queued', id: row.id };
     }
   };
@@ -202,9 +210,9 @@ function createMail(db, { encrypt, decrypt, filesDir }) {
       } finally { lock.release(); }
       await c.logout();
     } catch (e) {
-      db.save('mail_accounts', { id: a.id, last_error: e.message });
+      db.save('mail_accounts', { id: a.id, last_error: explain(e) });
       try { await c.logout(); } catch { /* déjà fermé */ }
-      if (!isNetworkError(e)) throw e;
+      if (!isNetworkError(e)) throw new Error(explain(e));
       return { fetched: 0, offline: true };
     }
     return { fetched: fresh.length, mails: fresh };

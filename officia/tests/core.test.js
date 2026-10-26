@@ -172,3 +172,30 @@ test('sessions : création, reprise des anciennes données, suppression limitée
   assert.equal(fs.existsSync(root), true);
   assert.equal(P.list().length, 0);
 });
+
+test('messagerie : réception IMAP (relève initiale, nouveaux messages seulement, pièce jointe, mauvais mot de passe)', async () => {
+  const hoodiecrow = require('hoodiecrow-imap');
+  const head = (n, subj) => `From: "Claire Dubois" <c.dubois@banque.ci>\r\nTo: secretariat@exemple.ci\r\nSubject: ${subj}\r\nMessage-ID: <m${n}@banque.ci>\r\nDate: Mon, 26 Oct 2026 0${n}:00:00 +0000\r\n`;
+  const plain = (n, s) => `${head(n, s)}Content-Type: text/plain; charset=utf-8\r\n\r\nBonjour, message ${n}.\r\n`;
+  const server = hoodiecrow({ plugins: ['ID', 'UIDPLUS', 'ENABLE'], users: { 'secretariat@exemple.ci': { password: 'secret' } },
+    storage: { INBOX: { messages: [{ raw: plain(1, 'Premier') }, { raw: plain(2, 'Second'), flags: ['\\Seen'] }] } } });
+  await new Promise((r) => server.listen(0, r));
+  const port = server.server.address().port;
+  const { db } = fresh();
+  const filesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'officia-'));
+  const M = createMail(db, { encrypt: enc, decrypt: dec, filesDir });
+  const acc = M.saveAccount({ email: 'secretariat@exemple.ci', imap_host: '127.0.0.1', imap_port: port, imap_secure: 0, password: 'secret', smtp_host: '127.0.0.1', smtp_port: 1 });
+  try {
+    assert.equal((await M.testAccount(acc.id)).imap, 'ok');
+    assert.equal((await M.fetch(acc.id)).fetched, 2);
+    assert.equal((await M.fetch(acc.id)).fetched, 0); // pas de doublon
+    server.appendMessage('INBOX', [], false, `${head(3, 'Contrat')}MIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="B"\r\n\r\n--B\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>Voir pièce jointe</p>\r\n--B\r\nContent-Type: application/pdf; name="contrat.pdf"\r\nContent-Disposition: attachment; filename="contrat.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0xLjQK\r\n--B--\r\n`);
+    const r = await M.fetch(acc.id);
+    assert.equal(r.fetched, 1);
+    assert.equal(r.mails[0].attachments[0].filename, 'contrat.pdf');
+    assert.ok(fs.existsSync(r.mails[0].attachments[0].path));
+    assert.equal(M.list({ folder: 'inbox' }).length, 3);
+    db.save('mail_accounts', { id: acc.id, password_enc: enc('mauvais') });
+    await assert.rejects(M.fetch(acc.id), /mot de passe refusé/);
+  } finally { server.close(); }
+});
