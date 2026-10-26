@@ -52,6 +52,9 @@ Parcours complet en 5 étapes : **Préparation → Convocation → Séance → P
 ### Appels
 Journal des **messages téléphoniques** (« pendant votre absence ») : appelant, société, numéro, pour qui, message, urgence ; « Rappelé » en un clic ou planification du rappel dans l’agenda.
 
+### Appels, WhatsApp et SMS
+Boutons **Appeler**, **WhatsApp** et **SMS** sur les contacts, le journal des appels et l’accueil ; **confirmation de rendez-vous par WhatsApp ou SMS** depuis la fiche du rendez-vous (message prérempli : date, heure, lieu, signature). Les appels et SMS passent par votre téléphone relié à Windows (application **« Lien avec Windows »**), WhatsApp par WhatsApp Desktop ou le navigateur. Les numéros locaux reçoivent l’indicatif par défaut (+225, modifiable dans Paramètres › Profil).
+
 ### Contacts
 Annuaire avec favoris, étiquettes, coordonnées, **import CSV** (Excel, Outlook, Gmail : colonnes reconnues automatiquement, doublons ignorés), et **historique** par contact (rendez-vous, appels, courriers) ; actions directes : écrire, planifier, noter un appel.
 

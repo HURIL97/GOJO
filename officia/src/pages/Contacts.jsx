@@ -5,6 +5,7 @@ import { useData, act } from '../lib/hooks';
 import { useApp } from '../lib/context';
 import { contactName, initials, fmtDateTime, fmtShort, TYPES } from '../lib/format';
 import { Card, Empty, Badge, toast } from '../components/ui';
+import { PhoneActions } from '../components/phone';
 
 export default function Contacts() {
   const { open, nav } = useApp();
@@ -57,6 +58,7 @@ export default function Contacts() {
               <div className="row wrap">
                 {c.email && <button className="btn" onClick={() => open('mail', { to_addr: c.email })}><Mail size={16} />Écrire</button>}
                 <button className="btn" onClick={() => open('event', { type: 'rdv', contact_id: c.id, title: `Rendez-vous avec ${contactName(c)}` })}><CalendarPlus size={16} />Rendez-vous</button>
+                {(c.mobile || c.phone) && <PhoneActions phone={c.mobile || c.phone} size="" labels text={`Bonjour ${contactName(c)},\n`} />}
                 <button className="btn" onClick={() => open('call', { contact_id: c.id, caller: contactName(c), company: c.company, phone: c.phone || c.mobile })}><PhoneCall size={16} />Noter un appel</button>
                 <button className="btn primary" onClick={() => open('contact', c)}><Pencil size={16} />Modifier</button>
               </div>
@@ -65,7 +67,7 @@ export default function Contacts() {
           <div className="grid g2">
             <Card title="Coordonnées">
               {[[Mail, c.email, c.email && `mailto:${c.email}`], [Phone, c.phone], [Smartphone, c.mobile], [Building2, c.company], [MapPin, c.address]].filter(([, v]) => v).map(([I, v], i) => (
-                <div key={i} className="list-row" style={{ userSelect: 'text' }}><I size={16} color="var(--accent)" />{v}</div>
+                <div key={i} className="list-row" style={{ userSelect: 'text' }}><I size={16} color="var(--accent)" /><span style={{ flex: 1 }}>{v}</span>{(I === Phone || I === Smartphone) && <PhoneActions phone={v} />}</div>
               ))}
               {c.notes && <div className="sticky mt" style={{ '--nc': '#7b6cff' }}>{c.notes}</div>}
             </Card>

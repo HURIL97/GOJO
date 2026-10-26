@@ -21,7 +21,7 @@ const DEFAULT_SETTINGS = {
   user_name: '', user_title: 'Assistante de direction', organisation: '', org_address: '', org_phone: '',
   manager_name: '', workday_start: '08:00', workday_end: '18:00', default_reminder: '15',
   notify_native: '1', notify_sound: '1', minimize_to_tray: '1', start_with_windows: '0',
-  task_digest_hour: '08:00', lock_pin: '', mail_sync_minutes: '5', theme: 'dark',
+  task_digest_hour: '08:00', lock_pin: '', mail_sync_minutes: '5', theme: 'dark', phone_country: '225',
 };
 
 const TYPES = ['reunion', 'rdv', 'appel', 'deplacement', 'echeance', 'perso', 'autre'];

@@ -273,6 +273,13 @@ function registerIpc() {
   });
 
   // Fichiers, impression, export
+  // Appel (tel:), SMS (sms:) et WhatsApp (wa.me) : ouverts par Windows, « Lien avec Windows » ou WhatsApp.
+  handle('phone.open', (url) => {
+    if (!/^(tel:\+?\d{6,16}$|sms:\+?\d{6,16}(\?body=.*)?$|https:\/\/wa\.me\/\d{6,16}(\?text=.*)?$)/.test(String(url || ''))) throw new Error('Numéro de téléphone invalide');
+    return shell.openExternal(url).catch(() => {
+      throw new Error(url.startsWith('tel:') || url.startsWith('sms:') ? 'Aucune application d’appel ou de SMS n’est associée : installez et configurez « Lien avec Windows » avec votre téléphone.' : 'Impossible d’ouvrir WhatsApp');
+    });
+  });
   handle('file.open', (p) => { if (p && fs.existsSync(p)) return shell.openPath(p); throw new Error('Fichier introuvable'); });
   handle('file.attach', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Documents', extensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx', 'odt'] }] });

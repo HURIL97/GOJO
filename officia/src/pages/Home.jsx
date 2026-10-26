@@ -10,6 +10,8 @@ import { fmtLong, fmtTime, fmtShort, relDay, weekdayShort, stamp, minutesBetween
 import { Card, Badge, Empty, StatusBadge } from '../components/ui';
 import { Bars, Donut, cssVar } from '../components/charts';
 import { dayHtml, printHtml } from '../lib/print';
+import { PhoneActions } from '../components/phone';
+import { callbackMessage } from '../lib/phone';
 
 function useNow() {
   const [now, setNow] = useState(stamp());
@@ -193,6 +195,7 @@ export default function Home() {
               <PhoneCall size={16} color={c.urgent ? 'var(--bad)' : 'var(--t-appel)'} />
               <div style={{ flex: 1, minWidth: 0 }}><div className="strong">{c.caller}{c.company ? <span className="muted"> · {c.company}</span> : null}</div><div className="muted small" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.message}</div></div>
               {c.urgent ? <Badge kind="bad">Urgent</Badge> : <span className="muted small">{ago(c.date)}</span>}
+              {c.phone && <PhoneActions phone={c.phone} text={callbackMessage(c, settings)} />}
             </div>
           )) : <Empty icon={PhoneCall}>Aucun appel en attente</Empty>}
         </Card>

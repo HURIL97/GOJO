@@ -5,9 +5,11 @@ import { useData, act } from '../lib/hooks';
 import { useApp } from '../lib/context';
 import { fmtDateTime, ago, CALL_STATUS } from '../lib/format';
 import { Tabs, Card, Badge, StatusBadge, Empty } from '../components/ui';
+import { PhoneActions } from '../components/phone';
+import { callbackMessage } from '../lib/phone';
 
 export default function Calls() {
-  const { open, nav } = useApp();
+  const { open, nav, settings } = useApp();
   const [status, setStatus] = useState('a_rappeler');
   const [q, setQ] = useState('');
   const [rows] = useData('calls.list', [{ status, q }], [status, q]);
@@ -34,6 +36,7 @@ export default function Calls() {
               <div className="muted small">{fmtDateTime(c.date)} ({ago(c.date)}){c.for_whom ? ` · pour ${c.for_whom}` : ''}{c.phone ? ` · ${c.phone}` : ''}</div>
             </div>
             <StatusBadge map={CALL_STATUS} value={c.status} />
+            {c.phone && <PhoneActions phone={c.phone} text={callbackMessage(c, settings)} />}
             {c.status === 'a_rappeler' && <>
               <button className="btn sm" title="Planifier le rappel" onClick={(e) => { e.stopPropagation(); open('event', { type: 'appel', title: `Rappeler ${c.caller}`, contact_id: c.contact_id, description: c.message }); }}><CalendarPlus size={14} /></button>
               <button className="btn sm good" onClick={(e) => { e.stopPropagation(); act(() => call('calls.save', { id: c.id, status: 'rappele' }), 'Marqué comme rappelé'); }}><Check size={14} />Rappelé</button>

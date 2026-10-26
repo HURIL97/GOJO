@@ -23,6 +23,7 @@ function Profile() {
         <Field label="Adresse" full><Input value={f.org_address} onChange={set('org_address')} /></Field>
         <Field label="Téléphone"><Input value={f.org_phone} onChange={set('org_phone')} /></Field>
         <Field label="Début de journée"><Input type="time" value={f.workday_start} onChange={set('workday_start')} /></Field>
+        <Field label="Indicatif téléphonique par défaut"><Input value={f.phone_country} onChange={set('phone_country')} placeholder="225" /></Field>
       </div>
     </Card>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarPlus, AlertTriangle, ListChecks, BellRing, Phone, FileText, UserRound, StickyNote, Trash2, Send, Video, Paperclip, X } from 'lucide-react';
+import { MessageCircle, MessageSquareText, CalendarPlus, AlertTriangle, ListChecks, BellRing, Phone, FileText, UserRound, StickyNote, Trash2, Send, Video, Paperclip, X } from 'lucide-react';
 import { call } from '../lib/api';
 import { act } from '../lib/hooks';
 import { useApp } from '../lib/context';
@@ -7,8 +7,9 @@ import {
   TYPES, EV_STATUS, REMINDER_OPTIONS, REPEAT, PRIORITY, TASK_STATUS, COURRIER_STATUS, COURRIER_MODE, CALL_STATUS,
   addMinutes, localDay, stamp, contactName, fmtTime,
 } from '../lib/format';
-import { Modal, Field, Input, Select, confirmBox } from './ui';
+import { Modal, Field, Input, Select, confirmBox, toast } from './ui';
 import { ComposeModal, confirmationDraft } from './compose';
+import { openPhone, waUrl, smsUrl, rdvMessage } from '../lib/phone';
 
 const nextSlot = () => {
   const d = new Date();
@@ -49,6 +50,20 @@ export function EventModal({ data = {}, onClose }) {
     return { ...x, start: v, end: v ? dt(addMinutes(full(v), Math.max(15, dur))) : x.end };
   });
   const parts = Array.isArray(f.participants) ? f.participants : [];
+  const remind = async (via) => {
+    const row = { ...f, start: f.all_day ? `${f.start.slice(0, 10)}T00:00:00` : full(f.start), end: f.all_day ? `${f.end.slice(0, 10)}T23:59:00` : full(f.end), reminder_min: Number(f.reminder_min) };
+    const r = await act(() => call('agenda.save', row));
+    if (!r) return;
+    const c = contacts.find((x) => x.id === r.contact_id);
+    const text = rdvMessage(r, c ? contactName(c) : '', settings);
+    const num = c.mobile || c.phone;
+    try {
+      if (via === 'sms') { try { await navigator.clipboard.writeText(text); } catch { /* ignoré */ } }
+      await openPhone(via === 'wa' ? waUrl(num, settings.phone_country, text) : smsUrl(num, settings.phone_country, text));
+      toast(via === 'wa' ? 'WhatsApp ouvert avec la confirmation prête à envoyer' : 'SMS préparé (texte aussi copié : Ctrl+V si besoin)', 'success');
+      onClose(r);
+    } catch (e) { toast(e.message, 'error'); }
+  };
   const save = async (thenConfirm) => {
     const row = { ...f, start: f.all_day ? `${f.start.slice(0, 10)}T00:00:00` : full(f.start), end: f.all_day ? `${f.end.slice(0, 10)}T23:59:00` : full(f.end), reminder_min: Number(f.reminder_min) };
     const r = await act(() => call('agenda.save', row), f.id ? 'Évènement modifié' : 'Ajouté à l’agenda');
@@ -64,7 +79,11 @@ export function EventModal({ data = {}, onClose }) {
       footer={<>
         <DeleteBtn table="events" id={f.id} onDone={() => onClose()} />
         <div style={{ flex: 1 }} />
-        {f.type === 'rdv' && contact && contact.email && <button className="btn" onClick={() => save(true)}><Send size={15} />Enregistrer et confirmer par e-mail</button>}
+        {f.type === 'rdv' && contact && contact.email && <button className="btn" onClick={() => save(true)}><Send size={15} />Confirmer par e-mail</button>}
+        {f.type === 'rdv' && contact && (contact.mobile || contact.phone) && <>
+          <button className="btn" title="Enregistrer et envoyer la confirmation par WhatsApp" onClick={() => remind('wa')}><MessageCircle size={15} color="#25d366" />WhatsApp</button>
+          <button className="btn" title="Enregistrer et envoyer la confirmation par SMS" onClick={() => remind('sms')}><MessageSquareText size={15} />SMS</button>
+        </>}
         <button className="btn" onClick={() => onClose()}>Annuler</button>
         <button className="btn primary" onClick={() => save(false)}>Enregistrer</button>
       </>}>
