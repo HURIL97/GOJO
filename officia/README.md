@@ -5,6 +5,8 @@
 Application Windows pour **assistante de direction et secrétariat** : agenda, rendez-vous, réunions et procès-verbaux, messagerie, courrier, appels, tâches, rappels et notifications, réunis dans une interface simple, élégante et professionnelle.
 Tout fonctionne **sans Internet** (base locale sur le poste) ; la messagerie envoie et relève vos e-mails dès que la connexion est disponible.
 
+📘 **Manuel d’utilisation illustré (PDF, 31 pages)** : [docs/OfficiaTech-Manuel.pdf](docs/OfficiaTech-Manuel.pdf)
+
 ![Ma journée](docs/accueil.png)
 
 | Agenda | Procès-verbal | Messagerie |

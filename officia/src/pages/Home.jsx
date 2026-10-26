@@ -80,7 +80,7 @@ export default function Home() {
         </div>
         <div className="grid g3">
           <Kpi icon={CalendarDays} label="Rendez-vous du jour" value={k.rdvToday} hint={`${k.eventsToday} évènements au total`} color="var(--t-rdv)" onClick={() => go('agenda')} />
-          <Kpi icon={Users2} label="Réunions cette semaine" value={k.meetingsWeek} hint={`${k.weekHours} h d’agenda planifiées`} color="var(--t-reunion)" onClick={() => go('meetings')} />
+          <Kpi icon={Users2} label="Réunions cette semaine" value={k.meetingsWeek} hint={`${String(k.weekHours).replace('.', ',')} h d’agenda planifiées`} color="var(--t-reunion)" onClick={() => go('meetings')} />
           <Kpi icon={AlertTriangle} label="Tâches en retard" value={k.lateTasks} hint={`${k.openTasks} ouvertes · ${k.doneWeek} faites cette semaine`} color="var(--bad)" alert={k.lateTasks > 0} onClick={() => go('tasks')} />
           <Kpi icon={Mail} label="Messages non lus" value={k.unread} hint={k.outbox ? `${k.outbox} en attente d’envoi` : 'Boîte d’envoi vide'} color="var(--accent)" onClick={() => go('mail')} />
           <Kpi icon={Inbox} label="Courriers à traiter" value={k.courrierTodo} hint={`Ce mois : ${k.courrierIn} reçus · ${k.courrierOut} envoyés`} color="var(--t-deplacement)" onClick={() => go('courrier')} />
