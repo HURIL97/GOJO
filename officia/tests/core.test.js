@@ -130,3 +130,15 @@ test('messagerie : envoi SMTP, boîte d’envoi hors ligne puis envoi au retour 
   assert.equal(m.from_name, 'Claire Dubois');
   assert.equal(await M.importRaw(acc.id, raw, { uid: 7 }), null); // dédoublonnage
 });
+
+test('import de contacts CSV : en-têtes Outlook/Excel, séparateur auto, guillemets, doublons', () => {
+  const { S } = fresh();
+  const csv = '﻿Prénom;Nom;Société;E-mail;Téléphone;Notes\r\nAwa;Kouassi;"SIN; Abidjan";awa@sin.ci;0701;"Cliente ""VIP"""\r\nJean;Yao;;JY@x.ci;;\r\n;;;;;\r\n';
+  assert.deepEqual(S.importContacts(csv), { added: 2, skipped: 0 });
+  const awa = S.contacts('Kouassi')[0];
+  assert.equal(awa.company, 'SIN; Abidjan');
+  assert.equal(awa.notes, 'Cliente "VIP"');
+  assert.deepEqual(S.importContacts('Name,E-mail Address\nClaire Dubois,c@b.com\nJean Yao,jy@x.ci\n'), { added: 1, skipped: 1 });
+  assert.equal(S.contacts('Dubois')[0].first_name, 'Claire');
+  assert.throws(() => S.importContacts('foo;bar\n1;2'), /Colonnes non reconnues/);
+});

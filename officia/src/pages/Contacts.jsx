@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Plus, Star, Mail, Phone, Smartphone, Building2, MapPin, CalendarPlus, PhoneCall, Inbox, Download, Contact as ContactIcon, Pencil, Search } from 'lucide-react';
+import { Plus, Star, Mail, Phone, Smartphone, Building2, MapPin, CalendarPlus, PhoneCall, Inbox, Download, Upload, Contact as ContactIcon, Pencil, Search } from 'lucide-react';
 import { call } from '../lib/api';
-import { useData } from '../lib/hooks';
+import { useData, act } from '../lib/hooks';
 import { useApp } from '../lib/context';
 import { contactName, initials, fmtDateTime, fmtShort, TYPES } from '../lib/format';
-import { Card, Empty, Badge } from '../components/ui';
+import { Card, Empty, Badge, toast } from '../components/ui';
 
 export default function Contacts() {
   const { open, nav } = useApp();
@@ -40,6 +40,7 @@ export default function Contacts() {
           {rows && !rows.length && <Empty icon={ContactIcon}>Aucun contact</Empty>}
         </div>
         <div style={{ padding: 10, borderTop: '1px solid var(--border-soft)' }}>
+          <button className="btn sm" style={{ width: '100%', marginBottom: 6 }} onClick={async () => { const r = await act(() => call('contacts.import')); if (r) toast(`${r.added} contact(s) importé(s)${r.skipped ? `, ${r.skipped} ignoré(s) (doublons ou lignes vides)` : ''}`, 'success'); }}><Upload size={14} />Importer (Excel, Outlook, Gmail)</button>
           <button className="btn sm" style={{ width: '100%' }} onClick={() => call('export.csv', 'contacts', (rows || []).map((x) => ({ Prenom: x.first_name, Nom: x.last_name, Societe: x.company, Fonction: x.title, Email: x.email, Telephone: x.phone, Mobile: x.mobile, Adresse: x.address })))}><Download size={14} />Exporter ({(rows || []).length})</button>
         </div>
       </div>

@@ -32,7 +32,17 @@ const decrypt = (s) => {
   return Buffer.from(s.slice(4), 'base64').toString();
 };
 
+// Reprend automatiquement les données de l'ancienne version (« Officia ») au premier lancement d'OfficiaTech.
+function migrateLegacyData() {
+  try {
+    const legacy = path.join(app.getPath('appData'), 'Officia', 'data');
+    if (fs.existsSync(dbFile()) || !fs.existsSync(path.join(legacy, 'officia.db'))) return;
+    fs.cpSync(legacy, dataDir(), { recursive: true, errorOnExist: false });
+  } catch (e) { console.error('Reprise des anciennes données impossible', e); }
+}
+
 function initData() {
+  migrateLegacyData();
   fs.mkdirSync(filesDir(), { recursive: true });
   db = new DB(dbFile());
   S = createServices(db);
@@ -88,6 +98,7 @@ function createTray() {
     { label: 'Ma journée', click: () => showWindow({ page: 'home' }) },
     { label: 'Agenda', click: () => showWindow({ page: 'agenda' }) },
     { type: 'separator' },
+    { label: 'Se déconnecter', click: () => { unlocked = false; showWindow(); send('session:logout'); } },
     { label: 'Quitter', click: () => { quitting = true; app.quit(); } },
   ]);
   tray.setContextMenu(menu);
@@ -174,6 +185,7 @@ function registerIpc() {
   handle('app.unlock', (pin) => { S.unlock(pin); unlocked = true; return true; }, { open: true });
   handle('app.autoUnlock', () => { if (S.settings().has_lock === '1') return false; unlocked = true; return true; }, { open: true });
   handle('app.lock', () => { if (S.settings().has_lock === '1') unlocked = false; return !unlocked; }, { open: true });
+  handle('app.logout', () => { unlocked = false; return true; }, { open: true });
   handle('app.setup', ({ settings, demo }) => { if (!S.isFirstRun()) throw new Error('Déjà configuré'); S.saveSettings(settings); if (demo) S.seedDemo(); unlocked = true; return S.settings(); }, { open: true });
   handle('settings.get', () => S.settings(), { open: true });
   handle('settings.save', (v) => {
@@ -196,6 +208,14 @@ function registerIpc() {
   handle('search', (q) => S.search(q));
   handle('contacts.list', (q) => S.contacts(q));
   handle('contacts.history', (id) => S.contactHistory(id));
+  handle('contacts.import', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'Contacts (CSV)', extensions: ['csv', 'txt'] }] });
+    if (canceled || !filePaths[0]) return null;
+    const buf = fs.readFileSync(filePaths[0]);
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch { text = new TextDecoder('windows-1252').decode(buf); }
+    return S.importContacts(text);
+  });
   handle('agenda.range', (a, b) => S.agenda(a, b));
   handle('agenda.conflicts', (a, b, ex) => S.conflicts(a, b, ex));
   handle('agenda.save', (d) => S.saveEvent(d));

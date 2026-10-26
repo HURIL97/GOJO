@@ -17,7 +17,7 @@ Tout fonctionne **sans Internet** (base locale sur le poste) ; la messagerie env
 Tableau de bord du matin : prochain rendez-vous avec compte à rebours et bouton « Rejoindre » pour les visioconférences, programme de la journée en frise chronologique, tâches du jour à cocher, rappels, charge de la semaine, répartition par type, derniers messages, réunions à venir et **PV à rédiger**, appels à rappeler, pense-bêtes. Impression de l’**agenda du jour** pour la personne assistée.
 
 ### Agenda et rendez-vous
-- Vues **jour, semaine, mois, liste** ; cliquer sur un créneau libre crée un évènement.
+- Vues **jour, semaine, mois, liste** ; cliquer sur un créneau libre crée un évènement, **glisser un évènement le déplace** (durée conservée, conflit signalé).
 - Types colorés : réunion, rendez-vous, appel, déplacement, échéance, personnel.
 - **Détection des conflits** d’agenda pendant la saisie, **récurrences** (quotidienne, hebdomadaire, mensuelle, annuelle), participants, lieu, lien de visio, statut (planifié, confirmé, reporté, annulé).
 - **Confirmation de rendez-vous par e-mail** en un clic (modèle prérempli).
@@ -51,10 +51,10 @@ Parcours complet en 5 étapes : **Préparation → Convocation → Séance → P
 Journal des **messages téléphoniques** (« pendant votre absence ») : appelant, société, numéro, pour qui, message, urgence ; « Rappelé » en un clic ou planification du rappel dans l’agenda.
 
 ### Contacts
-Annuaire avec favoris, étiquettes, coordonnées, et **historique** par contact (rendez-vous, appels, courriers) ; actions directes : écrire, planifier, noter un appel.
+Annuaire avec favoris, étiquettes, coordonnées, **import CSV** (Excel, Outlook, Gmail : colonnes reconnues automatiquement, doublons ignorés), et **historique** par contact (rendez-vous, appels, courriers) ; actions directes : écrire, planifier, noter un appel.
 
 ### Et aussi
-**Recherche globale** (`Ctrl+K`) dans tout : contacts, agenda, réunions, PV, tâches, messages, courrier, appels · bouton **Nouveau** (`Ctrl+N`) · thème sombre / clair · **verrouillage par code** · sauvegarde automatique quotidienne, sauvegarde et restauration manuelles · exports Excel.
+**Recherche globale** (`Ctrl+K`) dans tout : contacts, agenda, réunions, PV, tâches, messages, courrier, appels · bouton **Nouveau** (`Ctrl+N`) · thème sombre / clair · **déconnexion** (bouton en bas du menu, `Ctrl+L` ou icône près de l’horloge) avec **code de session** facultatif · numéro de page et mention OfficiaTech sur les PDF · reprise automatique des données d’une ancienne installation « Officia » · sauvegarde automatique quotidienne, sauvegarde et restauration manuelles · exports Excel.
 
 ---
 

@@ -6,7 +6,9 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const para = (s) => esc(s).replace(/\n/g, '<br>');
 
 const CSS = `
-  @page { size: A4; margin: 18mm 18mm 20mm; }
+  @page { size: A4; margin: 18mm 18mm 20mm;
+    @bottom-left { content: "Document établi avec OfficiaTech v1.00"; font: 7.5pt 'Segoe UI', Arial, sans-serif; color: #9ca3af; }
+    @bottom-right { content: "Page " counter(page) " / " counter(pages); font: 7.5pt 'Segoe UI', Arial, sans-serif; color: #6b7280; } }
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #111827; font-size: 11pt; line-height: 1.5; margin: 0; }
   .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #5a48e6; padding-bottom: 12px; margin-bottom: 18px; }
   .org { font-size: 15pt; font-weight: 700; } .muted { color: #6b7280; font-size: 9.5pt; }

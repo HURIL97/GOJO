@@ -78,6 +78,71 @@ function createServices(db) {
     courrier: db.all(`SELECT * FROM courrier WHERE deleted = 0 AND contact_id = ? ORDER BY date DESC LIMIT 50`, id),
   });
 
+  // Import CSV (Excel, Outlook, Gmail) : colonnes reconnues automatiquement, doublons ignorés.
+  const HEADERS = {
+    first_name: ['prénom', 'prenom', 'first name', 'given name', 'firstname'],
+    last_name: ['nom', 'last name', 'family name', 'surname', 'lastname', 'nom de famille'],
+    full_name: ['name', 'nom complet', 'full name', 'contact'],
+    company: ['société', 'societe', 'entreprise', 'company', 'organisation', 'organization', 'organization 1 - name', 'organisme'],
+    title: ['fonction', 'poste', 'job title', 'title', 'titre', 'organization 1 - title'],
+    email: ['e-mail', 'email', 'courriel', 'adresse e-mail', 'adresse de messagerie', 'e-mail address', 'email address', 'e-mail 1 - value', 'mail'],
+    phone: ['téléphone', 'telephone', 'tél', 'tel', 'phone', 'business phone', 'téléphone bureau', 'téléphone (bureau)', 'phone 1 - value', 'fixe'],
+    mobile: ['mobile', 'portable', 'mobile phone', 'téléphone mobile', 'tél. mobile', 'cellulaire', 'phone 2 - value'],
+    address: ['adresse', 'address', 'business street', 'rue (bureau)', 'address 1 - formatted'],
+    notes: ['notes', 'remarques', 'commentaire'],
+  };
+  const parseCsv = (text) => {
+    const firstLine = text.split(/\r?\n/)[0] || '';
+    const delim = [';', ',', '\t'].sort((a, b) => firstLine.split(b).length - firstLine.split(a).length)[0];
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let q = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) {
+        if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') q = false; else cell += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === delim) { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += ch;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter((r) => r.some((c) => c.trim()));
+  };
+  S.importContacts = (text) =>
+    db.tx(() => {
+      const rows = parseCsv(String(text || '').replace(/^﻿/, ''));
+      if (rows.length < 2) throw new Error('Le fichier ne contient aucun contact');
+      const head = rows[0].map((h) => h.trim().toLowerCase());
+      const col = {};
+      for (const [k, names] of Object.entries(HEADERS)) {
+        const i = head.findIndex((h) => names.includes(h));
+        if (i >= 0) col[k] = i;
+      }
+      if (['last_name', 'first_name', 'full_name', 'email', 'company'].every((k) => col[k] === undefined)) {
+        throw new Error('Colonnes non reconnues : la première ligne doit contenir des en-têtes comme « Nom », « Prénom », « E-mail », « Téléphone »');
+      }
+      const known = new Set(db.all(`SELECT lower(email) e FROM contacts WHERE deleted = 0 AND email <> ''`).map((r) => r.e));
+      let added = 0;
+      let skipped = 0;
+      for (const r of rows.slice(1)) {
+        const v = (k) => (col[k] !== undefined ? String(r[col[k]] || '').trim() : '');
+        const c = { first_name: v('first_name'), last_name: v('last_name'), company: v('company'), title: v('title'), email: v('email'), phone: v('phone'), mobile: v('mobile'), address: v('address'), notes: v('notes') };
+        if (!c.first_name && !c.last_name && v('full_name')) {
+          const parts = v('full_name').split(/\s+/);
+          c.first_name = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
+          c.last_name = parts[parts.length - 1];
+        }
+        if (!c.first_name && !c.last_name && !c.company && !c.email) { skipped++; continue; }
+        if (c.email && known.has(c.email.toLowerCase())) { skipped++; continue; }
+        if (c.email) known.add(c.email.toLowerCase());
+        db.save('contacts', { ...c, color: '#7b6cff' });
+        added++;
+      }
+      return { added, skipped };
+    });
+
   // ---------- Agenda ----------
   // Développe les occurrences d'un évènement récurrent dans l'intervalle [from, to].
   const occurrences = (ev, from, to) => {

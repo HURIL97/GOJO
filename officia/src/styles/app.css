@@ -410,3 +410,4 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; }
 .quick button { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 8px; border-radius: 12px; border: 1px solid var(--border-soft); background: var(--panel-2); cursor: pointer; font-weight: 600; font-size: 12.5px; }
 .quick button:hover { border-color: var(--accent); background: var(--accent-soft); }
 .lock { height: 100%; display: grid; place-items: center; background: radial-gradient(800px 500px at 20% 10%, rgba(123,108,255,.3), transparent 60%), radial-gradient(700px 500px at 90% 90%, rgba(31,181,204,.25), transparent 60%), var(--bg); }
+body.dragging-ev .wk-ev { pointer-events: none; opacity: .6; }

@@ -55,6 +55,8 @@ export default function Setup({ onDone }) {
 }
 
 export function LockScreen({ settings, onUnlock }) {
+  const hasLock = settings.has_lock === '1';
+  const [since] = useState(() => new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
   const [pin, setPin] = useState('');
   const [err, setErr] = useState(false);
   const submit = useCallback(async (p) => {
@@ -66,16 +68,24 @@ export function LockScreen({ settings, onUnlock }) {
     setPin((p) => (p.length < 8 ? p + k : p));
   }, [pin, submit]);
   useEffect(() => {
+    if (!hasLock) return undefined;
     const h = (e) => { if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') press('del'); else if (e.key === 'Enter') press('ok'); };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [press]);
+  }, [press, hasLock]);
+  const reopen = async () => { try { if (await call('app.autoUnlock')) onUnlock(); } catch (e) { toast(e.message, 'error'); } };
   return (
     <div className="lock">
       <div className="card" style={{ width: 380, padding: 32, textAlign: 'center' }}>
         <div className="avatar" style={{ width: 64, height: 64, fontSize: 22, margin: '0 auto 12px' }}>{initials(settings.user_name)}</div>
         <h2 style={{ margin: 0 }}>{settings.user_name}</h2>
-        <p className="muted" style={{ margin: '4px 0 0' }}>OfficiaTech est verrouillé</p>
+        <p className="muted" style={{ margin: '4px 0 0' }}>Session fermée à {since}{hasLock ? ' — saisissez votre code' : ''}</p>
+        {!hasLock ? (
+          <div className="col" style={{ gap: 12, marginTop: 24 }}>
+            <button className="btn primary lg" onClick={reopen}>Ouvrir la session</button>
+            <p className="muted small" style={{ margin: 0 }}>Aucun code n’est défini. Pour protéger votre session, ajoutez un code dans Paramètres › Sécurité.</p>
+          </div>
+        ) : <>
         <div className={`pin-dots ${err ? 'shake' : ''}`}>{Array.from({ length: Math.max(4, pin.length) }).map((_, i) => <i key={i} className={i < pin.length ? 'on' : ''} />)}</div>
         <div className="pinpad">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok'].map((k) => (
@@ -84,6 +94,7 @@ export function LockScreen({ settings, onUnlock }) {
             </button>
           ))}
         </div>
+        </>}
         <div className="muted small" style={{ marginTop: 18 }}>{ABOUT.name} v{ABOUT.version} · {ABOUT.author}</div>
       </div>
     </div>

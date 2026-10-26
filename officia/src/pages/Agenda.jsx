@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Printer, MapPin, Repeat, CalendarDays, Video } from 'lucide-react';
 import { call } from '../lib/api';
-import { useData } from '../lib/hooks';
+import { useData, act } from '../lib/hooks';
 import { useApp } from '../lib/context';
 import {
-  localDay, addDays, startOfWeek, monthTitle, fmtLong, fmtDay, fmtTime, fmtShort, weekdayShort, TYPES, EV_STATUS, stamp, minutesBetween, contactName, duration,
+  localDay, addDays, addMinutes, startOfWeek, monthTitle, fmtLong, fmtDay, fmtTime, fmtShort, weekdayShort, TYPES, EV_STATUS, stamp, minutesBetween, contactName, duration,
 } from '../lib/format';
-import { Tabs, Empty, StatusBadge } from '../components/ui';
+import { Tabs, Empty, StatusBadge, toast } from '../components/ui';
 import { dayHtml, printHtml } from '../lib/print';
 
 const HOUR = 52;
@@ -38,8 +38,9 @@ function layout(events) {
   return out;
 }
 
-function TimeGrid({ days, events, onOpen, onCreate }) {
+function TimeGrid({ days, events, onOpen, onCreate, onMove }) {
   const body = useRef(null);
+  const [dropAt, setDropAt] = useState(null);
   const now = stamp();
   useEffect(() => { if (body.current) body.current.scrollTop = 7 * HOUR - 10; }, [days[0]]);
   const timed = events.filter((e) => !e.all_day);
@@ -63,14 +64,18 @@ function TimeGrid({ days, events, onOpen, onCreate }) {
           return (
             <div key={d} className="wk-col">
               {Array.from({ length: 48 }, (_, i) => (
-                <div key={i} className="slot" onClick={() => onCreate(`${d}T${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)} />
+                <div key={i} className="slot" style={dropAt === `${d}-${i}` ? { background: 'var(--accent-soft)', boxShadow: 'inset 0 2px 0 var(--accent)' } : null}
+                  onClick={() => onCreate(`${d}T${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)}
+                  onDragOver={(e) => { e.preventDefault(); setDropAt(`${d}-${i}`); }}
+                  onDrop={(e) => { e.preventDefault(); setDropAt(null); const id = e.dataTransfer.getData('text/event'); if (id) onMove(id, `${d}T${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}:00`); }} />
               ))}
               {evs.map((e) => {
                 const startMin = Number(e.start.slice(11, 13)) * 60 + Number(e.start.slice(14, 16));
                 const len = Math.max(22, (Math.min(minutesBetween(e.start, e.end), 24 * 60 - startMin) / 60) * HOUR);
                 const w = 100 / e._lanes;
                 return (
-                  <div key={e.occ_id} className={`wk-ev tc-${e.type} ${e.status}`} title={`${e.title} · ${fmtTime(e.start)}–${fmtTime(e.end)}`}
+                  <div key={e.occ_id} className={`wk-ev tc-${e.type} ${e.status}`} title={`${e.title} · ${fmtTime(e.start)}–${fmtTime(e.end)} — glisser pour déplacer`}
+                    draggable onDragStart={(ev) => { ev.dataTransfer.setData('text/event', e.id); setTimeout(() => document.body.classList.add('dragging-ev'), 0); }} onDragEnd={() => { setDropAt(null); document.body.classList.remove('dragging-ev'); }}
                     style={{ top: (startMin / 60) * HOUR + 1, height: len - 2, left: `calc(${e._lane * w}% + 3px)`, width: `calc(${w}% - 6px)`, right: 'auto' }}
                     onClick={(ev) => { ev.stopPropagation(); onOpen(e); }}>
                     <b>{e.title}</b>
@@ -181,6 +186,16 @@ export default function Agenda() {
     open('event', base || e);
   };
   const create = (start) => open('event', { start: `${start}:00` });
+  // Glisser-déposer : déplace l'évènement en conservant sa durée.
+  const move = async (id, start) => {
+    const ev = await call('db.get', 'events', id);
+    if (!ev) return;
+    if (ev.recurrence && ev.recurrence !== 'none') return toast('Pour un évènement répétitif, modifiez l’horaire depuis sa fiche', 'info');
+    if (ev.start === start) return;
+    const end = addMinutes(start, Math.max(15, minutesBetween(ev.start, ev.end)));
+    const clash = (await call('agenda.conflicts', start, end, id)).length;
+    await act(() => call('agenda.save', { ...ev, start, end }), `« ${ev.title} » déplacé au ${fmtShort(start)} à ${fmtTime(start)}${clash ? ' — attention : conflit d’agenda' : ''}`);
+  };
   const title = view === 'month' ? monthTitle(anchor) : view === 'week' ? `${fmtShort(range[0])} – ${fmtShort(range[1])} ${range[1].slice(0, 4)}` : view === 'day' ? fmtLong(anchor) : `À partir du ${fmtShort(anchor)}`;
   const days = view === 'week' ? Array.from({ length: 7 }, (_, i) => addDays(range[0], i)) : [anchor];
 
@@ -200,11 +215,11 @@ export default function Agenda() {
         {Object.entries(TYPES).map(([k, l]) => (
           <span key={k} className={`tc-${k} ${hidden.includes(k) ? 'off' : ''}`} onClick={() => setHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]))}><i />{l}</span>
         ))}
-        <span className="muted" style={{ marginLeft: 'auto', cursor: 'default' }}>Cliquez sur un créneau libre pour créer un évènement</span>
+        <span className="muted" style={{ marginLeft: 'auto', cursor: 'default' }}>Cliquez sur un créneau libre pour créer · glissez un évènement pour le déplacer</span>
       </div>
       {!events ? null : view === 'month' ? <Month anchor={anchor} events={shown} onOpen={openEv} onCreate={create} onDay={(d) => { setAnchor(d); setView('day'); }} />
         : view === 'list' ? <ListView events={shown} onOpen={openEv} />
-          : <TimeGrid days={days} events={shown} onOpen={openEv} onCreate={create} />}
+          : <TimeGrid days={days} events={shown} onOpen={openEv} onCreate={create} onMove={move} />}
     </div>
   );
 }

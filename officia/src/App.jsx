@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Home as HomeIcon, CalendarDays, Users2, Mail as MailIcon, ListChecks, Contact, Inbox, PhoneCall, Settings as Cog,
-  Search, Bell, Plus, Sun, Moon, Lock, Sparkles, CalendarPlus, Handshake, BellRing, Send, FileText, Phone, StickyNote,
+  Search, Bell, Plus, Sun, Moon, LogOut, Sparkles, CalendarPlus, Handshake, BellRing, Send, FileText, Phone, StickyNote,
   CheckCheck, Trash2, X, CornerDownLeft, UserRound,
 } from 'lucide-react';
 import { call, on } from './lib/api';
 import { AppCtx } from './lib/context';
 import { ago, initials } from './lib/format';
 import { ABOUT } from './lib/about';
-import { Toasts, ConfirmHost, toast } from './components/ui';
+import { Toasts, ConfirmHost, toast, confirmBox } from './components/ui';
 import { ModalHost } from './components/modals';
 import Setup, { LockScreen } from './pages/Setup';
 import Home from './pages/Home';
@@ -213,6 +213,7 @@ export default function App() {
     const k = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette(true); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) { e.preventDefault(); setQuick(true); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') { e.preventDefault(); window.dispatchEvent(new Event('officia-logout')); }
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
@@ -224,7 +225,20 @@ export default function App() {
     try { localStorage.setItem('theme', t); } catch { /* ignoré */ }
     setTheme(t);
   };
-  const lock = async () => { if (await call('app.lock')) setPhase('locked'); else toast('Définissez un code de verrouillage dans Paramètres › Sécurité', 'info'); };
+  const logout = useCallback(async (ask = true) => {
+    if (ask && !(await confirmBox(settings && settings.has_lock === '1'
+      ? 'Se déconnecter ? Votre code sera demandé pour rouvrir la session.'
+      : 'Se déconnecter ? Astuce : définissez un code dans Paramètres › Sécurité pour que personne ne puisse rouvrir votre session.', { okLabel: 'Se déconnecter' }))) return;
+    await call('app.logout');
+    setModal(null); setPalette(false); setDrawer(false); setQuick(false);
+    setPhase('locked');
+  }, [settings]);
+  useEffect(() => on('session:logout', () => logout(false)), [logout]);
+  useEffect(() => {
+    const h = () => phase === 'ready' && logout();
+    window.addEventListener('officia-logout', h);
+    return () => window.removeEventListener('officia-logout', h);
+  }, [logout, phase]);
 
   const ctx = useMemo(() => ({ settings, reloadSettings, go, open, theme, nav }), [settings, reloadSettings, go, open, theme, nav]);
 
@@ -264,7 +278,7 @@ export default function App() {
                 <div className="muted small" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{settings.user_title}</div>
               </div>
               <button className="btn ghost sm icon right" title="Thème clair / sombre" onClick={toggleTheme}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</button>
-              <button className="btn ghost sm icon" title="Verrouiller" onClick={lock}><Lock size={16} /></button>
+              <button className="btn ghost sm icon" title="Se déconnecter (Ctrl+L)" onClick={() => logout()}><LogOut size={16} /></button>
             </div>
             <div className="muted" style={{ fontSize: 10.5, textAlign: 'center', lineHeight: 1.4 }}>{ABOUT.name} v{ABOUT.version}<br />par {ABOUT.author}</div>
           </div>
