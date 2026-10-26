@@ -10,7 +10,7 @@ import { ago, initials } from './lib/format';
 import { ABOUT } from './lib/about';
 import { Toasts, ConfirmHost, toast, confirmBox } from './components/ui';
 import { ModalHost } from './components/modals';
-import Setup, { LockScreen } from './pages/Setup';
+import Sessions from './pages/Setup';
 import Home from './pages/Home';
 import Agenda from './pages/Agenda';
 import Meetings from './pages/Meetings';
@@ -165,7 +165,7 @@ function Clock() {
 }
 
 export default function App() {
-  const [phase, setPhase] = useState('loading'); // loading | setup | locked | ready
+  const [phase, setPhase] = useState('loading'); // loading | sessions | ready
   const [settings, setSettings] = useState(null);
   const [nav, setNav] = useState({ page: 'home' });
   const [theme, setTheme] = useState(document.documentElement.dataset.theme || 'dark');
@@ -180,11 +180,9 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const s = await reloadSettings();
-      const info = await call('app.info');
-      if (info.firstRun) return setPhase('setup');
-      if (await call('app.autoUnlock')) setPhase('ready'); else setPhase('locked');
-      if (s.theme && !localStorage.getItem('theme')) { document.documentElement.dataset.theme = s.theme; setTheme(s.theme); }
+      await reloadSettings();
+      // Une seule session sans code : ouverture directe ; sinon, écran de choix des sessions.
+      if (await call('session.auto')) { await reloadSettings(); setPhase('ready'); } else setPhase('sessions');
     })().catch((e) => toast(e.message, 'error'));
   }, [reloadSettings]);
 
@@ -226,13 +224,18 @@ export default function App() {
     setTheme(t);
   };
   const logout = useCallback(async (ask = true) => {
-    if (ask && !(await confirmBox(settings && settings.has_lock === '1'
-      ? 'Se déconnecter ? Votre code sera demandé pour rouvrir la session.'
-      : 'Se déconnecter ? Astuce : définissez un code dans Paramètres › Sécurité pour que personne ne puisse rouvrir votre session.', { okLabel: 'Se déconnecter' }))) return;
+    if (ask && !(await confirmBox('Se déconnecter ? Vous pourrez rouvrir cette session, en choisir une autre ou en créer une nouvelle.', { okLabel: 'Se déconnecter' }))) return;
     await call('app.logout');
-    setModal(null); setPalette(false); setDrawer(false); setQuick(false);
-    setPhase('locked');
-  }, [settings]);
+    setModal(null); setPalette(false); setDrawer(false); setQuick(false); setBadges({});
+    await reloadSettings();
+    setPhase('sessions');
+  }, [reloadSettings]);
+  const opened = useCallback(async () => {
+    await reloadSettings();
+    navKey.current += 1;
+    setNav({ page: 'home', k: navKey.current });
+    setPhase('ready');
+  }, [reloadSettings]);
   useEffect(() => on('session:logout', () => logout(false)), [logout]);
   useEffect(() => {
     const h = () => phase === 'ready' && logout();
@@ -243,8 +246,7 @@ export default function App() {
   const ctx = useMemo(() => ({ settings, reloadSettings, go, open, theme, nav }), [settings, reloadSettings, go, open, theme, nav]);
 
   if (phase === 'loading' || !settings) return null;
-  if (phase === 'setup') return <AppCtx.Provider value={ctx}><Setup onDone={async () => { await reloadSettings(); setPhase('ready'); }} /><Toasts /></AppCtx.Provider>;
-  if (phase === 'locked') return <AppCtx.Provider value={ctx}><LockScreen settings={settings} onUnlock={() => setPhase('ready')} /><Toasts /></AppCtx.Provider>;
+  if (phase === 'sessions') return <AppCtx.Provider value={ctx}><Sessions onOpened={opened} /><Toasts /><ConfirmHost /></AppCtx.Provider>;
 
   const current = PAGES.find((p) => p.id === nav.page) || PAGES[0];
   const Comp = current.comp;

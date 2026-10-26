@@ -142,3 +142,33 @@ test('import de contacts CSV : en-têtes Outlook/Excel, séparateur auto, guille
   assert.equal(S.contacts('Dubois')[0].first_name, 'Claire');
   assert.throws(() => S.importContacts('foo;bar\n1;2'), /Colonnes non reconnues/);
 });
+
+test('sessions : création, reprise des anciennes données, suppression limitée au dossier des profils', () => {
+  const { Profiles, dbFileOf } = require('../electron/profiles');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'officia-prof-'));
+  // Ancienne base unique (session de démonstration d'avant les sessions).
+  const legacy = new DB(path.join(root, 'officia.db'));
+  const L = createServices(legacy);
+  L.saveSettings({ user_name: 'Awa Démo', organisation: 'Démo SA' });
+  L.seedDemo();
+  legacy.close();
+  const P = new Profiles(root);
+  const adopted = P.adoptLegacy();
+  assert.equal(adopted.name, 'Awa Démo');
+  assert.equal(adopted.demo, true);
+  assert.equal(P.adoptLegacy(), null); // pas de doublon
+  const real = P.add({ name: 'Joël Tetchi', organisation: 'Cabinet KOREY' });
+  const db = new DB(dbFileOf(real));
+  const S = createServices(db);
+  assert.equal(S.contacts('').length, 0); // session vierge, séparée de la démo
+  S.setLockPin('2468');
+  assert.throws(() => S.unlock('1111'), /Code incorrect/);
+  assert.equal(S.unlock('2468'), true);
+  db.close();
+  assert.equal(P.list().length, 2);
+  P.remove(real.id);
+  assert.equal(fs.existsSync(real.dir), false);
+  P.remove(adopted.id); // la session d'origine vit à la racine : seule sa base est retirée
+  assert.equal(fs.existsSync(root), true);
+  assert.equal(P.list().length, 0);
+});

@@ -76,6 +76,9 @@ npm install
 npm run dist:win     # → release/OfficiaTech-Setup-1.00.exe
 ```
 
+### Sessions
+OfficiaTech gère **plusieurs sessions**, chacune avec ses propres données (agenda, messages, courrier…), sa messagerie et son **code facultatif**. Au démarrage (ou après **Se déconnecter**, `Ctrl+L`), l’écran **Choisir une session** permet d’ouvrir une session, d’en **créer une nouvelle pour les données réelles**, d’ouvrir la **session de démonstration** ou de supprimer une session. S’il n’existe qu’une seule session sans code, elle s’ouvre directement.
+
 ### Premier démarrage
 Saisissez votre nom, votre fonction, l’organisation et la personne assistée. Cochez **données de démonstration** pour découvrir l’application avec un agenda, des réunions (dont un PV complet), des messages, des courriers et des appels fictifs.
 Ajoutez ensuite votre adresse e-mail dans **Paramètres › Messagerie** (bouton « Tester la connexion »). Pour Gmail ou Outlook avec validation en deux étapes, utilisez un **mot de passe d’application**.

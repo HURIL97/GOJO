@@ -3,8 +3,9 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, Notification, na
 const path = require('node:path');
 const fs = require('node:fs');
 const { DB, stamp } = require('./db');
-const { createServices, today } = require('./services');
+const { createServices, today, DEFAULT_SETTINGS } = require('./services');
 const { createMail } = require('./mail');
+const { Profiles, dbFileOf, filesDirOf } = require('./profiles');
 
 process.removeAllListeners('warning'); // masque l'avertissement « SQLite experimental »
 app.commandLine.appendSwitch('lang', 'fr-FR');
@@ -18,10 +19,14 @@ let S;
 let M;
 let quitting = false;
 let unlocked = false;
+let profiles;
+let current = null; // session ouverte
 
-const dataDir = () => path.join(app.getPath('userData'), 'data');
-const filesDir = () => path.join(dataDir(), 'fichiers');
-const dbFile = () => path.join(dataDir(), 'officia.db');
+const rootDir = () => path.join(app.getPath('userData'), 'data');
+const dataDir = () => (current ? current.dir : rootDir());
+const filesDir = () => (current ? filesDirOf(current) : path.join(rootDir(), 'fichiers'));
+const dbFile = () => (current ? dbFileOf(current) : path.join(rootDir(), 'officia.db'));
+const setting = (k) => (S ? S.settings()[k] : DEFAULT_SETTINGS[k]);
 const iconPath = path.join(__dirname, 'icon.png');
 
 // Mots de passe chiffrés par Windows (DPAPI) lorsque c'est disponible.
@@ -36,19 +41,51 @@ const decrypt = (s) => {
 function migrateLegacyData() {
   try {
     const legacy = path.join(app.getPath('appData'), 'Officia', 'data');
-    if (fs.existsSync(dbFile()) || !fs.existsSync(path.join(legacy, 'officia.db'))) return;
-    fs.cpSync(legacy, dataDir(), { recursive: true, errorOnExist: false });
+    if (fs.existsSync(path.join(rootDir(), 'officia.db')) || !fs.existsSync(path.join(legacy, 'officia.db'))) return;
+    fs.cpSync(legacy, rootDir(), { recursive: true, errorOnExist: false });
   } catch (e) { console.error('Reprise des anciennes données impossible', e); }
 }
 
 function initData() {
   migrateLegacyData();
+  profiles = new Profiles(rootDir());
+  profiles.adoptLegacy();
+}
+
+const publicProfile = (p) => ({ id: p.id, name: p.name, title: p.title, organisation: p.organisation, demo: p.demo, has_lock: p.has_lock, last_used: p.last_used });
+
+function closeSession() {
+  clearInterval(mailTimer);
+  unlocked = false;
+  if (db) { try { db.close(); } catch { /* déjà fermée */ } }
+  db = null; S = null; M = null; current = null;
+}
+
+function openSession(entry) {
+  closeSession();
+  current = entry;
   fs.mkdirSync(filesDir(), { recursive: true });
   db = new DB(dbFile());
   S = createServices(db);
   M = createMail(db, { encrypt, decrypt, filesDir: filesDir() });
   db.onChange((tables) => send('data:changed', tables));
   autoBackup();
+  current = profiles.update(entry.id, { last_used: stamp() }) || entry;
+  unlocked = true;
+  scheduleMail();
+  tick();
+}
+
+// Vérifie le code d'une session sans l'ouvrir.
+// Le code est lu dans la base elle-même (fiable même après une restauration de sauvegarde).
+function checkSessionPin(entry, pin) {
+  if (!fs.existsSync(dbFileOf(entry))) return;
+  const tmp = new DB(dbFileOf(entry));
+  try {
+    const locked = !!tmp.get(`SELECT value FROM settings WHERE key = 'lock_pin' AND deleted = 0 AND value <> ''`);
+    if (locked !== !!entry.has_lock) profiles.update(entry.id, { has_lock: locked });
+    if (locked) createServices(tmp).unlock(pin);
+  } finally { tmp.close(); }
 }
 
 function send(channel, payload) { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); }
@@ -86,7 +123,7 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:|^mailto:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file:') && !url.startsWith('http://localhost:5174')) { e.preventDefault(); shell.openExternal(url); } });
   win.on('close', (e) => {
-    if (!quitting && S.settings().minimize_to_tray === '1') { e.preventDefault(); win.hide(); }
+    if (!quitting && setting('minimize_to_tray') === '1') { e.preventDefault(); win.hide(); }
   });
 }
 
@@ -98,7 +135,7 @@ function createTray() {
     { label: 'Ma journée', click: () => showWindow({ page: 'home' }) },
     { label: 'Agenda', click: () => showWindow({ page: 'agenda' }) },
     { type: 'separator' },
-    { label: 'Se déconnecter', click: () => { unlocked = false; showWindow(); send('session:logout'); } },
+    { label: 'Se déconnecter', click: () => { closeSession(); showWindow(); send('session:logout'); } },
     { label: 'Quitter', click: () => { quitting = true; app.quit(); } },
   ]);
   tray.setContextMenu(menu);
@@ -108,7 +145,7 @@ function createTray() {
 // ---- Planificateur : échéances, rappels, messagerie ----
 const LINK_PAGE = { meeting: 'meetings', event: 'agenda', reminder: 'tasks', tasks: 'tasks', courrier: 'courrier', calls: 'calls', mail: 'mail', home: 'home' };
 function deliver(list) {
-  if (!list.length) return;
+  if (!list.length || !S) return;
   send('notifications:new', list);
   const set = S.settings();
   if (set.notify_native !== '1' || !Notification.isSupported()) return;
@@ -118,11 +155,11 @@ function deliver(list) {
     notif.show();
   }
 }
-function tick() { try { deliver(S.tick()); } catch (e) { console.error(e); } }
+function tick() { if (!S) return; try { deliver(S.tick()); } catch (e) { console.error(e); } }
 
 let mailBusy = false;
 async function mailCycle() {
-  if (mailBusy) return;
+  if (mailBusy || !M) return;
   mailBusy = true;
   try {
     await M.processOutbox();
@@ -140,6 +177,7 @@ async function mailCycle() {
 let mailTimer;
 function scheduleMail() {
   clearInterval(mailTimer);
+  if (!S) return;
   const min = Math.max(1, Number(S.settings().mail_sync_minutes) || 5);
   mailTimer = setInterval(mailCycle, min * 60000);
   setTimeout(mailCycle, 5000);
@@ -181,20 +219,54 @@ function handle(channel, fn, { open = false } = {}) {
 
 function registerIpc() {
   // Démarrage et verrouillage
-  handle('app.info', () => ({ version: app.getVersion(), dataDir: dataDir(), today: today(), firstRun: S.isFirstRun() }), { open: true });
-  handle('app.unlock', (pin) => { S.unlock(pin); unlocked = true; return true; }, { open: true });
-  handle('app.autoUnlock', () => { if (S.settings().has_lock === '1') return false; unlocked = true; return true; }, { open: true });
-  handle('app.lock', () => { if (S.settings().has_lock === '1') unlocked = false; return !unlocked; }, { open: true });
-  handle('app.logout', () => { unlocked = false; return true; }, { open: true });
-  handle('app.setup', ({ settings, demo }) => { if (!S.isFirstRun()) throw new Error('Déjà configuré'); S.saveSettings(settings); if (demo) S.seedDemo(); unlocked = true; return S.settings(); }, { open: true });
-  handle('settings.get', () => S.settings(), { open: true });
+  handle('app.info', () => ({ version: app.getVersion(), dataDir: dataDir(), today: today(), firstRun: !profiles.list().length }), { open: true });
+
+  // Sessions
+  handle('session.state', () => ({ profiles: profiles.list().map(publicProfile), current: unlocked && current ? current.id : null }), { open: true });
+  handle('session.auto', () => {
+    // Ouverture directe uniquement s'il n'existe qu'une session, sans code.
+    const list = profiles.list();
+    if (list.length !== 1) return false;
+    try { checkSessionPin(list[0], undefined); } catch { return false; }
+    openSession(list[0]);
+    return true;
+  }, { open: true });
+  handle('session.open', (id, pin) => {
+    const entry = profiles.get(id);
+    if (!entry) throw new Error('Session introuvable');
+    checkSessionPin(entry, pin);
+    openSession(entry);
+    return publicProfile(current);
+  }, { open: true });
+  handle('session.create', ({ settings, demo, pin }) => {
+    if (!settings || !String(settings.user_name || '').trim()) throw new Error('Indiquez votre nom');
+    if (pin && !/^\d{4,8}$/.test(pin)) throw new Error('Le code doit contenir 4 à 8 chiffres');
+    const entry = profiles.add({ name: settings.user_name, title: settings.user_title, organisation: settings.organisation, demo });
+    openSession(entry);
+    S.saveSettings(settings);
+    if (pin) S.setLockPin(pin);
+    if (demo) S.seedDemo(); else S.seedTemplates();
+    current = profiles.update(entry.id, { has_lock: !!pin });
+    tick();
+    return publicProfile(current);
+  }, { open: true });
+  handle('session.remove', (id, pin) => {
+    const entry = profiles.get(id);
+    if (!entry) return false;
+    checkSessionPin(entry, pin);
+    if (current && current.id === id) closeSession();
+    return profiles.remove(id);
+  }, { open: true });
+  handle('app.logout', () => { closeSession(); return true; }, { open: true });
+  handle('settings.get', () => (S ? S.settings() : { ...DEFAULT_SETTINGS, lock_pin: undefined, has_lock: '0' }), { open: true });
   handle('settings.save', (v) => {
     const r = S.saveSettings(v);
+    current = profiles.update(current.id, { name: r.user_name || current.name, title: r.user_title || '', organisation: r.organisation || '' });
     app.setLoginItemSettings({ openAtLogin: r.start_with_windows === '1', args: ['--hidden'] });
     scheduleMail();
     return r;
   });
-  handle('settings.lockPin', (pin) => S.setLockPin(pin));
+  handle('settings.lockPin', (pin) => { const r = S.setLockPin(pin); current = profiles.update(current.id, { has_lock: r.has_lock === '1' }); return r; });
 
   // Générique
   const TABLES = new Set(['contacts', 'events', 'meetings', 'tasks', 'reminders', 'courrier', 'calls', 'templates', 'notes']);
@@ -339,10 +411,8 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc();
     createWindow();
     createTray();
-    tick();
     setInterval(tick, 30000);
-    scheduleMail();
   });
   app.on('before-quit', () => { quitting = true; });
-  app.on('window-all-closed', () => { if (quitting || S.settings().minimize_to_tray !== '1') { db.close(); app.quit(); } });
+  app.on('window-all-closed', () => { if (quitting || setting('minimize_to_tray') !== '1') { closeSession(); app.quit(); } });
 }

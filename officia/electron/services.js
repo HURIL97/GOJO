@@ -475,6 +475,22 @@ function createServices(db) {
     return { subject: rep(tpl.subject), body: rep(tpl.body) };
   };
 
+  // Modèles de messages standards, ajoutés à chaque nouvelle session.
+  S.seedTemplates = () => {
+    if (db.get(`SELECT 1 FROM templates WHERE deleted = 0`)) return;
+    const tpl = (name, category, subject, body) => db.save('templates', { name, category, subject, body });
+    tpl('Confirmation de rendez-vous', 'Rendez-vous', 'Confirmation de votre rendez-vous du {{date}}',
+      'Bonjour {{nom}},\n\nNous avons le plaisir de vous confirmer votre rendez-vous le {{date}} à {{heure}}, {{lieu}}.\n\nEn cas d’empêchement, merci de nous prévenir au plus tôt.\n\nBien cordialement,\n{{signature}}');
+    tpl('Report de rendez-vous', 'Rendez-vous', 'Report de votre rendez-vous',
+      'Bonjour {{nom}},\n\nPour des raisons d’agenda, nous sommes contraints de reporter le rendez-vous prévu le {{date}}. Nous revenons vers vous très rapidement avec de nouvelles disponibilités.\n\nVeuillez nous excuser pour ce contretemps.\n\nBien cordialement,\n{{signature}}');
+    tpl('Accusé de réception de courrier', 'Courrier', 'Accusé de réception — {{objet}}',
+      'Madame, Monsieur,\n\nNous accusons bonne réception de votre courrier relatif à « {{objet}} ». Il a été transmis au service concerné qui ne manquera pas de vous répondre dans les meilleurs délais.\n\nVeuillez agréer nos salutations distinguées.\n\n{{signature}}');
+    tpl('Relance', 'Suivi', 'Relance : {{objet}}',
+      'Bonjour {{nom}},\n\nSauf erreur de notre part, nous restons dans l’attente de votre retour concernant « {{objet}} ». Pourriez-vous nous indiquer où en est ce dossier ?\n\nBien cordialement,\n{{signature}}');
+    tpl('Remerciements', 'Suivi', 'Merci pour votre visite',
+      'Bonjour {{nom}},\n\nNous vous remercions pour votre visite et pour la qualité de nos échanges. Nous restons à votre disposition pour toute information complémentaire.\n\nBien cordialement,\n{{signature}}');
+  };
+
   // ---------- Données de démonstration ----------
   S.seedDemo = () =>
     db.tx(() => {
@@ -565,17 +581,7 @@ function createServices(db) {
       call({ date: at(0, '09:15'), caller: 'M. Konan', company: 'Transports Express', phone: '+225 07 55 44 33 22', for_whom: contactName(dg), message: 'Devis pour le transport du personnel.', urgent: 1 });
       call({ date: at(-1, '16:20'), caller: 'Paul Mensah', company: 'Cabinet Mensah', phone: avocat.phone, for_whom: contactName(dg), message: 'Le contrat de bail est prêt.', status: 'rappele', contact_id: avocat.id });
 
-      const tpl = (name, category, subject, body) => db.save('templates', { name, category, subject, body });
-      tpl('Confirmation de rendez-vous', 'Rendez-vous', 'Confirmation de votre rendez-vous du {{date}}',
-        'Bonjour {{nom}},\n\nNous avons le plaisir de vous confirmer votre rendez-vous le {{date}} à {{heure}}, {{lieu}}.\n\nEn cas d’empêchement, merci de nous prévenir au plus tôt.\n\nBien cordialement,\n{{signature}}');
-      tpl('Report de rendez-vous', 'Rendez-vous', 'Report de votre rendez-vous',
-        'Bonjour {{nom}},\n\nPour des raisons d’agenda, nous sommes contraints de reporter le rendez-vous prévu le {{date}}. Nous revenons vers vous très rapidement avec de nouvelles disponibilités.\n\nVeuillez nous excuser pour ce contretemps.\n\nBien cordialement,\n{{signature}}');
-      tpl('Accusé de réception de courrier', 'Courrier', 'Accusé de réception — {{objet}}',
-        'Madame, Monsieur,\n\nNous accusons bonne réception de votre courrier relatif à « {{objet}} ». Il a été transmis au service concerné qui ne manquera pas de vous répondre dans les meilleurs délais.\n\nVeuillez agréer nos salutations distinguées.\n\n{{signature}}');
-      tpl('Relance', 'Suivi', 'Relance : {{objet}}',
-        'Bonjour {{nom}},\n\nSauf erreur de notre part, nous restons dans l’attente de votre retour concernant « {{objet}} ». Pourriez-vous nous indiquer où en est ce dossier ?\n\nBien cordialement,\n{{signature}}');
-      tpl('Remerciements', 'Suivi', 'Merci pour votre visite',
-        'Bonjour {{nom}},\n\nNous vous remercions pour votre visite et pour la qualité de nos échanges. Nous restons à votre disposition pour toute information complémentaire.\n\nBien cordialement,\n{{signature}}');
+      S.seedTemplates();
 
       // Quelques messages de démonstration dans la boîte de réception locale.
       const mail = (o) => db.save('mails', { account_id: 'demo', folder: 'inbox', read: 0, starred: 0, attachments: [], ...o });
