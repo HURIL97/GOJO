@@ -1,0 +1,5 @@
+# Remplacez par votre nom de domaine (enregistrement DNS A vers l'IP du VPS).
+# Caddy obtient et renouvelle automatiquement le certificat HTTPS.
+equipe.mon-organisation.com {
+	reverse_proxy 127.0.0.1:8790
+}

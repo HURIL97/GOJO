@@ -22,6 +22,16 @@ const DEFAULT_SETTINGS = {
   manager_name: '', workday_start: '08:00', workday_end: '18:00', default_reminder: '15',
   notify_native: '1', notify_sound: '1', minimize_to_tray: '1', start_with_windows: '0',
   task_digest_hour: '08:00', lock_pin: '', mail_sync_minutes: '5', theme: 'dark', phone_country: '225',
+  // Papier à en-tête
+  org_email: '', org_footer: '', org_logo: '', org_city: '', letter_signatory: '',
+  // Rappels automatiques
+  visitor_reminder: '1', visitor_reminder_hour: '16:00', courrier_auto_relance: '0', courrier_relance_days: '3',
+  // Sécurité
+  lock_idle_minutes: '10', backup_dir: '', backup_keep: '30',
+  // Équipe (serveur sur le VPS)
+  sync_url: '', sync_token: '', sync_interval: '30', device_name: '',
+  // Connexion Microsoft (Outlook, Hotmail, Microsoft 365)
+  ms_client_id: '', ms_tenant: 'common',
 };
 
 const TYPES = ['reunion', 'rdv', 'appel', 'deplacement', 'echeance', 'perso', 'autre'];
@@ -186,6 +196,12 @@ function createServices(db) {
       if (!row.end || row.end < row.start) row.end = addMinutes(row.start, 60);
       if (!TYPES.includes(row.type)) row.type = 'autre';
       delete row.occ_id; delete row.occurrence; delete row.first_name; delete row.last_name; delete row.company;
+      const before = row.id ? db.byId('events', row.id) : null;
+      // Rendez-vous déplacé : nouvelle version de l'invitation, le visiteur sera prévenu à nouveau.
+      if (before && (before.start !== row.start || before.end !== row.end || (before.status !== row.status && row.status === 'annule'))) {
+        row.ics_seq = (Number(before.ics_seq) || 0) + 1;
+        if (before.start !== row.start) row.visitor_reminded_at = null;
+      }
       const ev = db.save('events', row);
       // Une réunion de l'agenda a toujours sa fiche réunion (ordre du jour, PV).
       if (ev.type === 'reunion') {
@@ -383,8 +399,17 @@ function createServices(db) {
         const prefix = `${row.direction === 'depart' ? 'D' : 'A'}-${row.date.slice(0, 4)}-`;
         const last = db.get(`SELECT number FROM courrier WHERE number LIKE ? ORDER BY number DESC LIMIT 1`, `${prefix}%`);
         row.number = `${prefix}${String((last ? Number(last.number.slice(-4)) : 0) + 1).padStart(4, '0')}`;
+        row.circuit = [{ date: stamp(), action: 'enregistre', to: '', note: row.direction === 'depart' ? 'Courrier départ' : 'Courrier arrivée', by: S.settings().user_name || '' }];
       }
-      return db.save('courrier', row);
+      const before = row.id ? db.byId('courrier', row.id) : null;
+      if (row.status === 'traite' && (!before || before.status !== 'traite') && !row.treated_at) row.treated_at = stamp();
+      const saved = db.save('courrier', row);
+      // Réponse à un courrier arrivé : celui-ci passe en « Traité ».
+      if (!before && saved.reply_to_id) {
+        const orig = db.byId('courrier', saved.reply_to_id);
+        if (orig && !['traite', 'archive'].includes(orig.status)) S.courrierStep(orig.id, { action: 'reponse', note: `Réponse ${saved.number}` });
+      }
+      return saved;
     });
 
   // ---------- Appels ----------
@@ -469,6 +494,189 @@ function createServices(db) {
     };
   };
 
+  // ---------- Import d'agenda (.ics) ----------
+  S.importEvents = (events) =>
+    db.tx(() => {
+      let added = 0;
+      let updated = 0;
+      for (const e of events || []) {
+        if (!e.start || !e.title) continue;
+        const ex = e.uid ? db.get(`SELECT id FROM events WHERE ics_uid = ? AND deleted = 0`, e.uid) : null;
+        const row = { title: e.title, start: e.start, end: e.end || addMinutes(e.start, 60), all_day: e.all_day || 0, location: e.location || '', description: e.description || '',
+          visio_url: e.visio_url || '', recurrence: e.recurrence || 'none', recur_until: e.recur_until || null, status: e.status || 'planifie', ics_uid: e.uid || null };
+        if (ex) { db.save('events', { id: ex.id, ...row }); updated++; } else { db.save('events', { type: 'autre', reminder_min: 15, participants: [], ...row }); added++; }
+      }
+      return { added, updated };
+    });
+
+  // ---------- Rappel automatique des visiteurs (la veille) ----------
+  // Rendez-vous de demain avec un interlocuteur, à prévenir par e-mail, WhatsApp ou SMS.
+  S.visitorReminders = (day = addDays(today(), 1)) =>
+    S.agenda(day, day).filter((e) => ['rdv', 'appel'].includes(e.type) && e.contact_id && e.status !== 'annule' && !e.all_day && e.occurrence === 0)
+      .map((e) => ({ ...e, contact: db.byId('contacts', e.contact_id) })).filter((e) => e.contact);
+  S.markVisitorReminded = (id) => db.save('events', { id, visitor_reminded_at: stamp() });
+  const fr = (s) => toDate(s).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  S.visitorMessage = (ev) => {
+    const set = S.settings();
+    const who = contactName(ev.contact) || 'Madame, Monsieur';
+    return {
+      subject: `Rappel : votre rendez-vous de demain à ${hm(ev.start).replace(':', 'h')}`,
+      text: `Bonjour ${who},\n\nNous vous rappelons votre rendez-vous de demain, ${fr(ev.start)}, à ${hm(ev.start).replace(':', 'h')}${ev.location ? `, ${ev.location}` : ''}${set.organisation ? ` (${set.organisation})` : ''}.${ev.visio_url ? `\nLien de visioconférence : ${ev.visio_url}` : ''}\n\nEn cas d’empêchement, merci de nous prévenir.\n\nBien cordialement,\n${[set.user_name, set.user_title, set.organisation].filter(Boolean).join('\n')}`,
+    };
+  };
+  // Travail à faire à l'heure choisie : messages à envoyer et visiteurs sans e-mail à prévenir par téléphone.
+  S.automationBatch = (now = stamp()) => {
+    const set = S.settings();
+    const out = { visitors: [], phones: [], relances: [] };
+    if (set.visitor_reminder === '1' && now.slice(11, 16) >= (set.visitor_reminder_hour || '16:00')) {
+      for (const ev of S.visitorReminders(addDays(now.slice(0, 10), 1))) {
+        if (ev.visitor_reminded_at) continue;
+        if (ev.contact.email) out.visitors.push({ ev, to: ev.contact.email, ...S.visitorMessage(ev) });
+        else if (ev.contact.mobile || ev.contact.phone) out.phones.push(ev);
+      }
+    }
+    if (set.courrier_auto_relance === '1') {
+      const gap = Math.max(1, Number(set.courrier_relance_days) || 3);
+      for (const c of db.all(`SELECT * FROM courrier WHERE deleted = 0 AND direction = 'arrivee' AND status IN ('enregistre','en_traitement') AND due IS NOT NULL AND due <> '' AND due < ? AND assigned_email IS NOT NULL AND assigned_email <> ''`, now.slice(0, 10))) {
+        const last = (Array.isArray(c.circuit) ? c.circuit : []).filter((x) => x.action === 'relance').pop();
+        if (last && last.date > addDays(now.slice(0, 10), -gap)) continue;
+        out.relances.push({ courrier: c, to: c.assigned_email, ...S.relanceMessage(c) });
+      }
+    }
+    return out;
+  };
+
+  // ---------- Courrier : circuit de traitement ----------
+  const STEP_LABEL = { enregistre: 'Enregistré', transmis: 'Transmis', relance: 'Relance', reponse: 'Réponse', traite: 'Traité', archive: 'Archivé', note: 'Note' };
+  S.relanceMessage = (c) => ({
+    subject: `Relance — courrier ${c.number} : ${c.object}`,
+    text: `Bonjour${c.assigned_to ? ` ${c.assigned_to}` : ''},\n\nLe courrier ${c.number} reçu le ${fr(c.date)} de ${c.correspondent} (objet : « ${c.object} ») vous a été transmis pour traitement${c.due ? ` avant le ${fr(c.due)}` : ''}.\n\nPourriez-vous nous indiquer où en est sa réponse ?\n\nBien cordialement,\n${[S.settings().user_name, S.settings().user_title].filter(Boolean).join('\n')}`,
+  });
+  S.courrierStep = (id, step) =>
+    db.tx(() => {
+      const c = db.byId('courrier', id);
+      if (!c) throw new Error('Courrier introuvable');
+      if (!STEP_LABEL[step.action]) throw new Error('Étape inconnue');
+      const circuit = [...(Array.isArray(c.circuit) ? c.circuit : []), { date: stamp(), action: step.action, to: step.to || '', note: step.note || '', by: S.settings().user_name || '' }];
+      const patch = { id, circuit };
+      if (step.action === 'transmis') Object.assign(patch, { status: 'en_traitement', assigned_to: step.to || c.assigned_to, assigned_email: step.email ?? c.assigned_email, due: step.due || c.due });
+      if (step.action === 'reponse' || step.action === 'traite') Object.assign(patch, { status: 'traite', treated_at: stamp() });
+      if (step.action === 'archive') patch.status = 'archive';
+      return db.save('courrier', patch);
+    });
+  S.stepLabel = STEP_LABEL;
+
+  // ---------- Réunions : séance suivante et suivi des actions ----------
+  // Actions non terminées de la réunion précédente (même intitulé, ou réunion liée).
+  S.previousMeeting = (m) => (m.previous_id ? db.byId('meetings', m.previous_id)
+    : db.get(`SELECT * FROM meetings WHERE deleted = 0 AND title = ? AND start < ? AND id <> ? ORDER BY start DESC LIMIT 1`, m.title, m.start, m.id || ''));
+  S.openActions = (meetingId) => {
+    const m = db.byId('meetings', meetingId);
+    if (!m) return { previous: null, tasks: [] };
+    const prev = S.previousMeeting(m);
+    if (!prev) return { previous: null, tasks: [] };
+    return { previous: { id: prev.id, title: prev.title, start: prev.start }, tasks: db.all(`SELECT * FROM tasks WHERE deleted = 0 AND meeting_id = ? AND status <> 'terminee' ORDER BY due`, prev.id) };
+  };
+  const followUpItem = (prev, tasks) => ({
+    title: `Suivi des actions de la réunion du ${fr(prev.start)}`, presenter: '', duration: Math.max(10, tasks.length * 5),
+    carried: tasks.map((t) => ({ task_id: t.id, title: t.title, owner: t.assignee || '', due: t.due || '', status: t.status })),
+  });
+  S.planNextMeeting = (id, start) =>
+    db.tx(() => {
+      const m = S.meeting(id);
+      const at = start || (m.minutes && m.minutes.next_meeting) || addDays(m.start.slice(0, 10), 7) + m.start.slice(10);
+      const dur = Math.max(30, minutesBetween(m.start, m.end));
+      const open = db.all(`SELECT * FROM tasks WHERE deleted = 0 AND meeting_id = ? AND status <> 'terminee' ORDER BY due`, id);
+      const agenda = [{ title: 'Validation du procès-verbal de la séance précédente', presenter: m.president || '', duration: 10 }];
+      if (open.length) agenda.push(followUpItem(m, open));
+      agenda.push({ title: 'Questions diverses', presenter: '', duration: 15 });
+      return S.saveMeeting({ title: m.title, start: at.length === 16 ? `${at}:00` : at, end: addMinutes(at.length === 16 ? `${at}:00` : at, dur), location: m.location, visio_url: m.visio_url,
+        organizer: m.organizer, president: m.president, objective: m.objective, previous_id: m.id, status: 'preparation', agenda,
+        participants: m.participants.map((p) => ({ ...p, presence: '' })), minutes: { intro: '', points: [], actions: [], conclusion: '', next_meeting: '' } });
+    });
+  // Ajoute (ou met à jour) le point « Suivi des actions » d'une réunion existante.
+  S.carryActions = (id) =>
+    db.tx(() => {
+      const m = S.meeting(id);
+      const { previous, tasks } = S.openActions(id);
+      if (!previous) throw new Error('Aucune réunion précédente trouvée (même intitulé)');
+      if (!tasks.length) throw new Error('Toutes les actions de la réunion précédente sont terminées');
+      const agenda = m.agenda.filter((a) => !a.carried);
+      agenda.splice(Math.min(1, agenda.length), 0, followUpItem(previous, tasks));
+      return S.saveMeeting({ ...m, agenda, previous_id: m.previous_id || previous.id });
+    });
+  S.validatePv = (id, by, remarks) => {
+    const m = db.byId('meetings', id);
+    if (!m) throw new Error('Réunion introuvable');
+    return S.setMeetingStatus(id, 'pv_valide', { pv_validated_by: by || '', pv_remarks: remarks || m.pv_remarks || null });
+  };
+
+  // ---------- Accès mobile de la Direction ----------
+  S.mobileUsers = () => db.list('mobile_users', {}, 'name').map(({ code_hash, ...u }) => ({ ...u, has_code: !!code_hash })); // eslint-disable-line no-unused-vars
+  S.saveMobileUser = (u) => {
+    if (!u.name || !u.login) throw new Error('Indiquez le nom et l’identifiant');
+    const login = String(u.login).trim().toLowerCase();
+    if (!/^[a-z0-9._-]{2,40}$/.test(login)) throw new Error('Identifiant : 2 à 40 caractères (lettres, chiffres, point, tiret)');
+    const dup = db.get(`SELECT id FROM mobile_users WHERE deleted = 0 AND login = ? AND id <> ?`, login, u.id || '');
+    if (dup) throw new Error('Cet identifiant est déjà utilisé');
+    const row = { id: u.id, name: u.name, login, role: u.role || 'direction', active: u.active === 0 ? 0 : 1 };
+    if (u.code) {
+      if (!/^\d{6,10}$/.test(u.code)) throw new Error('Le code mobile doit contenir 6 à 10 chiffres');
+      row.code_hash = hashPin(u.code);
+    } else if (!u.id) throw new Error('Choisissez un code d’accès');
+    const r = db.save('mobile_users', row);
+    delete r.code_hash;
+    return r;
+  };
+
+  // ---------- Rapport mensuel d'activité ----------
+  S.monthlyReport = (month = today().slice(0, 7)) => {
+    const from = `${month}-01`;
+    const d = toDate(from);
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0);
+    const to = stamp(d).slice(0, 10);
+    const prevD = toDate(from); prevD.setMonth(prevD.getMonth() - 1);
+    const prevMonth = stamp(prevD).slice(0, 7);
+    const inMonth = (col) => `substr(${col},1,7) = ?`;
+    const count = (sql, ...p) => db.get(sql, ...p).n;
+    const events = S.agenda(from, to).filter((e) => e.status !== 'annule');
+    const block = (m) => ({
+      meetings: count(`SELECT COUNT(*) n FROM meetings WHERE deleted = 0 AND ${inMonth('start')} AND status IN ('tenue','pv_valide','pv_diffuse')`, m),
+      pvValidated: count(`SELECT COUNT(*) n FROM meetings WHERE deleted = 0 AND ${inMonth('pv_validated_at')}`, m),
+      pvSent: count(`SELECT COUNT(*) n FROM meetings WHERE deleted = 0 AND ${inMonth('pv_sent_at')}`, m),
+      courrierIn: count(`SELECT COUNT(*) n FROM courrier WHERE deleted = 0 AND direction = 'arrivee' AND ${inMonth('date')}`, m),
+      courrierOut: count(`SELECT COUNT(*) n FROM courrier WHERE deleted = 0 AND direction = 'depart' AND ${inMonth('date')}`, m),
+      courrierTreated: count(`SELECT COUNT(*) n FROM courrier WHERE deleted = 0 AND direction = 'arrivee' AND ${inMonth('date')} AND status IN ('traite','archive')`, m),
+      calls: count(`SELECT COUNT(*) n FROM calls WHERE deleted = 0 AND ${inMonth('date')}`, m),
+      callsBack: count(`SELECT COUNT(*) n FROM calls WHERE deleted = 0 AND ${inMonth('date')} AND status = 'rappele'`, m),
+      tasksDone: count(`SELECT COUNT(*) n FROM tasks WHERE deleted = 0 AND status = 'terminee' AND ${inMonth('done_at')}`, m),
+      mailsSent: count(`SELECT COUNT(*) n FROM mails WHERE deleted = 0 AND folder = 'sent' AND ${inMonth('date')}`, m),
+      mailsIn: count(`SELECT COUNT(*) n FROM mails WHERE deleted = 0 AND folder IN ('inbox','archive') AND ${inMonth('date')}`, m),
+    });
+    const cur = block(month);
+    const prev = block(prevMonth);
+    cur.rdv = events.filter((e) => e.type === 'rdv').length;
+    cur.events = events.length;
+    cur.hours = Math.round(events.reduce((s, e) => s + (e.all_day ? 0 : minutesBetween(e.start, e.end)), 0) / 6) / 10;
+    const lateTasks = db.all(`SELECT * FROM tasks WHERE deleted = 0 AND status <> 'terminee' AND due IS NOT NULL AND due <> '' AND due <= ? ORDER BY due`, to);
+    const treated = db.all(`SELECT date, treated_at FROM courrier WHERE deleted = 0 AND direction = 'arrivee' AND treated_at IS NOT NULL AND ${inMonth('treated_at')}`, month);
+    const delay = treated.length ? Math.round(treated.reduce((s, c) => s + Math.max(0, minutesBetween(`${c.date}T00:00:00`, c.treated_at) / 1440), 0) / treated.length * 10) / 10 : null;
+    // Activité par semaine du mois.
+    const weeks = [];
+    for (let s = from; s <= to; s = addDays(s, 7)) {
+      const e = addDays(s, 6) > to ? to : addDays(s, 6);
+      const evs = events.filter((x) => x.start.slice(0, 10) >= s && x.start.slice(0, 10) <= e);
+      weeks.push({ from: s, to: e, rdv: evs.filter((x) => x.type === 'rdv').length, meetings: evs.filter((x) => x.type === 'reunion').length,
+        courrier: count(`SELECT COUNT(*) n FROM courrier WHERE deleted = 0 AND date >= ? AND date <= ?`, s, e),
+        calls: count(`SELECT COUNT(*) n FROM calls WHERE deleted = 0 AND substr(date,1,10) >= ? AND substr(date,1,10) <= ?`, s, e) });
+    }
+    const types = TYPES.map((t) => ({ type: t, n: events.filter((e) => e.type === t).length })).filter((x) => x.n);
+    const meetings = db.all(`SELECT id, title, start, status FROM meetings WHERE deleted = 0 AND ${inMonth('start')} ORDER BY start`, month);
+    return { month, from, to, prevMonth, kpi: cur, prev, delay, lateTasks: lateTasks.slice(0, 15), lateCount: lateTasks.length, weeks, types, meetings,
+      openCourrier: count(`SELECT COUNT(*) n FROM courrier WHERE deleted = 0 AND direction = 'arrivee' AND status IN ('enregistre','en_traitement')`) };
+  };
+
   // ---------- Modèles de messages ----------
   S.fillTemplate = (tpl, vars) => {
     const rep = (s) => String(s || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_, k) => (vars[k] != null ? vars[k] : `{{${k}}}`));
@@ -489,6 +697,18 @@ function createServices(db) {
       'Bonjour {{nom}},\n\nSauf erreur de notre part, nous restons dans l’attente de votre retour concernant « {{objet}} ». Pourriez-vous nous indiquer où en est ce dossier ?\n\nBien cordialement,\n{{signature}}');
     tpl('Remerciements', 'Suivi', 'Merci pour votre visite',
       'Bonjour {{nom}},\n\nNous vous remercions pour votre visite et pour la qualité de nos échanges. Nous restons à votre disposition pour toute information complémentaire.\n\nBien cordialement,\n{{signature}}');
+  };
+
+  // Réponses rapides proposées sous chaque message (ajoutées une seule fois par session).
+  S.seedQuickReplies = () => {
+    if (db.meta('quick_replies_seeded')) return;
+    const q = (name, body) => db.save('templates', { name, category: 'Réponse rapide', subject: '', body });
+    q('Bien reçu', 'Bonjour,\n\nBien reçu, merci. Je transmets à la Direction et reviens vers vous dans les meilleurs délais.\n\nBien cordialement,\n{{signature}}');
+    q('Rendez-vous confirmé', 'Bonjour,\n\nC’est noté : votre rendez-vous est confirmé. À très bientôt.\n\nBien cordialement,\n{{signature}}');
+    q('Je reviens vers vous', 'Bonjour,\n\nMerci pour votre message. Je vérifie les disponibilités de la Direction et je reviens vers vous très rapidement.\n\nBien cordialement,\n{{signature}}');
+    q('Document en pièce jointe', 'Bonjour,\n\nVeuillez trouver ci-joint le document demandé.\n\nBien cordialement,\n{{signature}}');
+    q('Absence de la Direction', 'Bonjour,\n\nLa Direction est actuellement en déplacement. Votre message lui sera transmis dès son retour.\n\nBien cordialement,\n{{signature}}');
+    db.setMeta('quick_replies_seeded', '1');
   };
 
   // ---------- Données de démonstration ----------

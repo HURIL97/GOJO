@@ -1,0 +1,24 @@
+services:
+  officia-equipe:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - TZ=${TZ:-Africa/Abidjan}
+    ports:
+      - "127.0.0.1:8790:8790"   # exposé via Caddy (HTTPS), jamais directement sur Internet
+    volumes:
+      - ./data:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    network_mode: host          # Caddy écoute 80/443 et joint le service sur 127.0.0.1:8790
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+
+volumes:
+  caddy_data:

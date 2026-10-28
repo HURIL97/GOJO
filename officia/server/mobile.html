@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d1c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>OfficiaTech — Direction</title>
+<style>
+  :root { --bg:#0b0d1c; --panel:#141830; --panel2:#1b2040; --text:#eef2fb; --muted:#9aa6c4; --border:rgba(255,255,255,.08); --accent:#7b6cff; --accent2:#1fb5cc; --good:#2fbf71; --warn:#f59f00; --bad:#ef5350; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f4f5fb; --panel:#ffffff; --panel2:#eef0f8; --text:#141830; --muted:#5d6788; --border:rgba(20,24,48,.09); } }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin:0; background:var(--bg); color:var(--text); font: 15px/1.45 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  header { position:sticky; top:0; z-index:5; padding: calc(14px + env(safe-area-inset-top)) 16px 12px; background: linear-gradient(135deg, rgba(123,108,255,.35), rgba(31,181,204,.18)), var(--bg); backdrop-filter: blur(10px); border-bottom:1px solid var(--border); }
+  header .brand { display:flex; align-items:center; gap:10px; }
+  .logo { width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:grid; place-items:center; color:#fff; font-weight:800; }
+  header h1 { font-size:18px; margin:0; } header small { color:var(--muted); display:block; font-size:12px; }
+  main { padding: 14px 16px; max-width: 720px; margin: 0 auto; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:14px; margin-bottom:12px; }
+  .kpis { display:grid; grid-template-columns: repeat(3,1fr); gap:10px; margin-bottom:12px; }
+  .kpi { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:12px; }
+  .kpi b { display:block; font-size:24px; } .kpi span { color:var(--muted); font-size:12px; }
+  h2 { font-size:15px; margin:18px 0 8px; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; }
+  .ev { display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .ev:last-child { border-bottom:0; }
+  .ev .t { width:64px; flex:none; font-weight:700; font-variant-numeric: tabular-nums; } .ev .t small { display:block; color:var(--muted); font-weight:400; }
+  .ev .bar { width:4px; border-radius:3px; flex:none; background:var(--accent); }
+  .ev .bar.rdv { background:var(--accent2); } .ev .bar.reunion { background:var(--accent); } .ev .bar.appel { background:var(--good); } .ev .bar.echeance { background:var(--bad); } .ev .bar.deplacement { background:var(--warn); }
+  .muted { color:var(--muted); font-size:13px; }
+  .tag { display:inline-block; padding:2px 9px; border-radius:20px; font-size:11.5px; background:var(--panel2); color:var(--muted); }
+  .tag.warn { background:rgba(245,159,0,.15); color:var(--warn); } .tag.good { background:rgba(47,191,113,.15); color:var(--good); } .tag.bad { background:rgba(239,83,80,.15); color:var(--bad); }
+  button, .btn { font:inherit; border:0; border-radius:12px; padding:12px 16px; background:var(--panel2); color:var(--text); font-weight:600; cursor:pointer; }
+  .primary { background:linear-gradient(135deg,var(--accent),#5a48e6); color:#fff; } .good { background:var(--good); color:#fff; }
+  .full { width:100%; }
+  input, textarea { width:100%; font:inherit; color:var(--text); background:var(--panel2); border:1px solid var(--border); border-radius:12px; padding:12px; margin:6px 0 12px; }
+  textarea { min-height:90px; }
+  nav { position:fixed; left:0; right:0; bottom:0; display:grid; grid-template-columns:repeat(4,1fr); background:var(--panel); border-top:1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); z-index:6; }
+  nav button { background:none; border-radius:0; padding:10px 0 9px; color:var(--muted); font-size:11.5px; font-weight:600; position:relative; }
+  nav button svg { display:block; margin:0 auto 3px; width:22px; height:22px; }
+  nav button.on { color:var(--accent); }
+  nav .dot { position:absolute; top:6px; left:calc(50% + 8px); min-width:17px; height:17px; border-radius:9px; background:var(--bad); color:#fff; font-size:10.5px; line-height:17px; padding:0 4px; }
+  .week { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:10px; }
+  .day { flex:none; width:48px; text-align:center; padding:8px 0; border-radius:12px; background:var(--panel); border:1px solid var(--border); }
+  .day.on { background:linear-gradient(135deg,var(--accent),#5a48e6); color:#fff; border-color:transparent; }
+  .day small { display:block; font-size:11px; opacity:.8; } .day b { font-size:17px; }
+  .row { display:flex; align-items:center; gap:10px; } .between { justify-content:space-between; }
+  .item { padding:12px 0; border-bottom:1px solid var(--border); } .item:last-child { border-bottom:0; }
+  .dec { background:rgba(47,191,113,.1); border-left:3px solid var(--good); padding:8px 10px; border-radius:8px; margin-top:6px; font-size:14px; }
+  .login { min-height:100vh; display:grid; place-items:center; padding:24px; }
+  .login .card { width:100%; max-width:380px; padding:24px; }
+  .err { color:var(--bad); font-size:14px; min-height:20px; }
+  .back { background:none; padding:6px 0; color:var(--accent); }
+  .empty { text-align:center; color:var(--muted); padding:22px 0; }
+  .toast { position:fixed; left:16px; right:16px; bottom:90px; background:var(--good); color:#fff; padding:12px 16px; border-radius:12px; font-weight:600; text-align:center; z-index:9; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const para = (s) => esc(s).replace(/\n/g, '<br>');
+const pad = (n) => String(n).padStart(2, '0');
+const day = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const addDays = (s, n) => { const d = new Date(`${s}T00:00:00`); d.setDate(d.getDate() + n); return day(d); };
+const hm = (s) => (s && s.length > 10 ? s.slice(11, 16).replace(':', 'h') : '');
+const fdate = (s, o) => new Date(`${s.slice(0, 10)}T00:00:00`).toLocaleDateString('fr-FR', o);
+const long = (s) => fdate(s, { weekday: 'long', day: 'numeric', month: 'long' });
+const TYPES = { reunion: 'Réunion', rdv: 'Rendez-vous', appel: 'Appel', deplacement: 'Déplacement', echeance: 'Échéance', perso: 'Personnel', autre: 'Autre' };
+const ICON = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  pv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 15l2 2 4-4"/></svg>',
+  task: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h12M9 12h12M9 18h12M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>',
+};
+let token = null;
+try { token = localStorage.getItem('officia_token'); } catch { /* navigation privée */ }
+let state = { tab: 'home', sel: day(), meeting: null };
+
+async function api(p, body) {
+  const r = await fetch(`/m/api${p}`, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && p !== '/login') { logout(); throw new Error(j.error || 'Session expirée'); }
+  if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+  return j;
+}
+function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
+function logout() { token = null; try { localStorage.removeItem('officia_token'); } catch { /* ignoré */ } loginView(); }
+
+function loginView(err = '') {
+  $('#app').innerHTML = `<div class="login"><form class="card" id="f">
+    <div class="row" style="margin-bottom:16px"><div class="logo">O</div><div><b style="font-size:18px">OfficiaTech</b><div class="muted">Espace Direction</div></div></div>
+    <label class="muted">Identifiant</label><input name="login" autocomplete="username" autocapitalize="none" required>
+    <label class="muted">Code d’accès</label><input name="code" type="password" inputmode="numeric" autocomplete="current-password" required>
+    <div class="err">${esc(err)}</div>
+    <button class="primary full" type="submit">Se connecter</button>
+    <p class="muted" style="margin-bottom:0">Votre accès est créé par votre secrétariat dans OfficiaTech (Paramètres › Équipe).</p></form></div>`;
+  $('#f').onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    try {
+      const r = await api('/login', { login: fd.get('login'), code: fd.get('code') });
+      token = r.token;
+      try { localStorage.setItem('officia_token', token); } catch { /* ignoré */ }
+      render();
+    } catch (x) { loginView(x.message); }
+  };
+}
+
+function shell(content, title, sub) {
+  $('#app').innerHTML = `<header><div class="brand"><div class="logo">O</div><div style="flex:1"><h1>${esc(title)}</h1><small>${esc(sub || '')}</small></div><button class="back" id="out">Quitter</button></div></header>
+    <main>${content}</main>
+    <nav>${[['home', 'Accueil', ICON.home], ['agenda', 'Agenda', ICON.cal], ['pv', 'PV', ICON.pv], ['tasks', 'Suivi', ICON.task]].map(([k, l, i]) => `<button data-tab="${k}" class="${state.tab === k ? 'on' : ''}">${i}${l}${k === 'pv' && state.pvCount ? `<span class="dot">${state.pvCount}</span>` : ''}</button>`).join('')}</nav>`;
+  $('#out').onclick = () => { if (confirm('Se déconnecter de l’espace Direction ?')) logout(); };
+  document.querySelectorAll('nav button').forEach((b) => { b.onclick = () => { state.tab = b.dataset.tab; state.meeting = null; render(); }; });
+}
+
+const evRow = (e) => `<div class="ev"><div class="t">${e.all_day ? 'Journée' : hm(e.start)}<small>${e.all_day ? '' : hm(e.end)}</small></div><div class="bar ${esc(e.type)}"></div>
+  <div style="flex:1;min-width:0"><b>${esc(e.title)}</b><div class="muted">${esc(TYPES[e.type] || '')}${e.location ? ` · ${esc(e.location)}` : ''}${e.contact ? ` · ${esc(e.contact.name)}${e.contact.company ? ` (${esc(e.contact.company)})` : ''}` : ''}</div>
+  ${e.visio_url ? `<a href="${esc(e.visio_url)}" target="_blank" rel="noopener">Rejoindre la visioconférence</a>` : ''}${e.contact && e.contact.phone ? ` <a href="tel:${esc(e.contact.phone.replace(/[^\d+]/g, ''))}">Appeler</a>` : ''}</div></div>`;
+
+async function home() {
+  const s = await api('/summary');
+  state.pvCount = s.pvToValidate;
+  shell(`<div class="kpis"><div class="kpi"><b>${s.today.length}</b><span>aujourd’hui</span></div><div class="kpi"><b style="color:var(--warn)">${s.pvToValidate}</b><span>PV à valider</span></div><div class="kpi"><b style="color:var(--bad)">${s.tasksLate}</b><span>actions en retard</span></div></div>
+    ${s.pvToValidate ? `<div class="card row between"><div><b>${s.pvToValidate} procès-verbal${s.pvToValidate > 1 ? 'aux' : ''} à valider</b><div class="muted">Relisez et validez depuis votre téléphone</div></div><button class="primary" id="gopv">Voir</button></div>` : ''}
+    <h2>Mon programme du jour</h2><div class="card">${s.today.map(evRow).join('') || '<div class="empty">Aucun rendez-vous aujourd’hui</div>'}</div>
+    <div class="muted" style="text-align:center">${s.courrier} courrier(s) en cours de traitement</div>`, `Bonjour ${state.name || ''}`.trim(), long(day()));
+  const g = $('#gopv'); if (g) g.onclick = () => { state.tab = 'pv'; render(); };
+}
+
+async function agendaView() {
+  const start = addDays(state.sel, -((new Date(`${state.sel}T00:00:00`).getDay() + 6) % 7));
+  const list = await api(`/agenda?from=${start}&to=${addDays(start, 6)}`);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  const of = list.filter((e) => e.start.slice(0, 10) === state.sel || (e.all_day && e.start.slice(0, 10) <= state.sel && e.end.slice(0, 10) >= state.sel));
+  shell(`<div class="row between" style="margin-bottom:10px"><button id="prev">‹</button><b>Semaine du ${fdate(start, { day: 'numeric', month: 'long' })}</b><button id="next">›</button></div>
+    <div class="week">${days.map((d) => `<div class="day ${d === state.sel ? 'on' : ''}" data-d="${d}"><small>${fdate(d, { weekday: 'short' })}</small><b>${Number(d.slice(8))}</b><small>${list.filter((e) => e.start.slice(0, 10) === d).length || '·'}</small></div>`).join('')}</div>
+    <h2>${long(state.sel)}</h2><div class="card">${of.map(evRow).join('') || '<div class="empty">Journée libre</div>'}</div>`, 'Agenda', 'Mis à jour par votre secrétariat');
+  document.querySelectorAll('.day').forEach((d) => { d.onclick = () => { state.sel = d.dataset.d; render(); }; });
+  $('#prev').onclick = () => { state.sel = addDays(state.sel, -7); render(); };
+  $('#next').onclick = () => { state.sel = addDays(state.sel, 7); render(); };
+}
+
+const statusTag = (m) => (m.status === 'tenue' ? '<span class="tag warn">À valider</span>' : m.status === 'pv_valide' || m.status === 'pv_diffuse' ? '<span class="tag good">Validé</span>' : '<span class="tag">Programmée</span>');
+async function pvList() {
+  const r = await api('/meetings');
+  state.pvCount = r.toValidate.length;
+  const row = (m) => `<div class="item row between" data-id="${esc(m.id)}"><div style="min-width:0"><b>${esc(m.title)}</b><div class="muted">${long(m.start)} à ${hm(m.start)}</div></div>${statusTag(m)}</div>`;
+  shell(`<h2>À valider</h2><div class="card">${r.toValidate.map(row).join('') || '<div class="empty">Aucun PV en attente</div>'}</div>
+    <h2>Réunions à venir</h2><div class="card">${r.upcoming.map(row).join('') || '<div class="empty">—</div>'}</div>
+    <h2>PV validés récemment</h2><div class="card">${r.recent.map(row).join('') || '<div class="empty">—</div>'}</div>`, 'Réunions & PV', 'Relecture et validation');
+  document.querySelectorAll('.item[data-id]').forEach((el) => { el.onclick = () => { state.meeting = el.dataset.id; render(); }; });
+}
+
+async function pvDetail() {
+  const m = await api(`/meetings/${encodeURIComponent(state.meeting)}`);
+  const min = m.minutes || {};
+  const pres = (k) => (m.participants || []).filter((p) => p.presence === k).map((p) => esc(p.name)).join(', ') || '—';
+  shell(`<button class="back" id="back">‹ Réunions</button>
+    <div class="card"><div class="row between"><b style="font-size:17px">${esc(m.title)}</b>${statusTag(m)}</div><div class="muted">${long(m.start)}, ${hm(m.start)} – ${hm(m.end)}${m.location ? ` · ${esc(m.location)}` : ''}</div>
+      <div class="muted" style="margin-top:8px">Présents : ${pres('present')}<br>Excusés : ${pres('excuse')}</div></div>
+    ${min.intro ? `<div class="card">${para(min.intro)}</div>` : ''}
+    ${(min.points || []).map((p, i) => `<div class="card"><b>${i + 1}. ${esc(p.title)}</b>${p.discussion ? `<p style="margin:6px 0 0">${para(p.discussion)}</p>` : ''}${p.decisions ? `<div class="dec"><b>Décision :</b> ${para(p.decisions)}</div>` : ''}</div>`).join('') || (m.status === 'tenue' ? '' : '<div class="card empty">Le procès-verbal n’est pas encore rédigé</div>')}
+    ${(min.actions || []).filter((a) => a.title).length ? `<h2>Actions décidées</h2><div class="card">${min.actions.filter((a) => a.title).map((a) => `<div class="item"><b>${esc(a.title)}</b><div class="muted">${esc(a.owner || '')}${a.due ? ` · avant le ${fdate(a.due, { day: 'numeric', month: 'long' })}` : ''}</div></div>`).join('')}</div>` : ''}
+    ${min.conclusion ? `<div class="card">${para(min.conclusion)}</div>` : ''}
+    ${m.status === 'tenue' ? `<h2>Votre avis</h2><div class="card"><label class="muted">Observations pour le secrétariat (facultatif)</label><textarea id="rem" placeholder="Corrections à apporter…">${esc(m.pv_remarks)}</textarea>
+      <div class="row"><button id="send" style="flex:1">Envoyer mes remarques</button><button class="good" id="ok" style="flex:1">Valider le PV</button></div></div>`
+    : m.pv_validated_by ? `<div class="muted" style="text-align:center">Validé par ${esc(m.pv_validated_by)}${m.pv_validated_at ? ` le ${fdate(m.pv_validated_at, { day: 'numeric', month: 'long' })}` : ''}</div>` : ''}`, 'Procès-verbal', m.title);
+  $('#back').onclick = () => { state.meeting = null; render(); };
+  const ok = $('#ok');
+  if (ok) {
+    ok.onclick = async () => { if (!confirm('Valider définitivement ce procès-verbal ?')) return; await api(`/meetings/${encodeURIComponent(m.id)}/validate`, { remarks: $('#rem').value }); toast('PV validé — le secrétariat est informé'); state.meeting = null; render(); };
+    $('#send').onclick = async () => { await api(`/meetings/${encodeURIComponent(m.id)}/remarks`, { remarks: $('#rem').value }); toast('Remarques transmises au secrétariat'); };
+  }
+}
+
+async function tasksView() {
+  const [tasks, cour] = await Promise.all([api('/tasks'), api('/courrier')]);
+  const t = day();
+  shell(`<h2>Actions et tâches en cours</h2><div class="card">${tasks.map((x) => `<div class="item"><div class="row between"><b>${esc(x.title)}</b>${x.due && x.due < t ? '<span class="tag bad">En retard</span>' : ''}</div><div class="muted">${esc(x.assignee || '')}${x.due ? ` · échéance ${fdate(x.due, { day: 'numeric', month: 'short' })}` : ''}</div></div>`).join('') || '<div class="empty">Rien en cours</div>'}</div>
+    <h2>Courrier en traitement</h2><div class="card">${cour.map((c) => `<div class="item"><b>${esc(c.object)}</b><div class="muted">${esc(c.number)} · ${esc(c.correspondent)}${c.assigned_to ? ` → ${esc(c.assigned_to)}` : ''}</div></div>`).join('') || '<div class="empty">Aucun courrier en attente</div>'}</div>`, 'Suivi', 'Tâches et courrier');
+}
+
+async function render() {
+  if (!token) return loginView();
+  try {
+    if (!state.name) { const me = await api('/me'); state.name = me.name; }
+    if (state.tab === 'home') await home();
+    else if (state.tab === 'agenda') await agendaView();
+    else if (state.tab === 'pv') await (state.meeting ? pvDetail() : pvList());
+    else await tasksView();
+  } catch (e) { if (token) shell(`<div class="card empty">${esc(e.message)}<br><br><button id="retry">Réessayer</button></div>`, 'OfficiaTech', ''); const r = $('#retry'); if (r) r.onclick = render; }
+}
+render();
+document.addEventListener('visibilitychange', () => { if (!document.hidden && token) render(); });
+</script>
+</body>
+</html>
