@@ -1,17 +1,27 @@
 # OfficiaTech — l’assistant administratif tout-en-un
 
-**Version 1.00** — développé par **M. TETCHI KOREY JOEL**, Comptable · +225 07 19 37 80 57 / +225 01 60 29 61 49 · heliontech97@gmail.com
+**Version 1.10** — développé par **M. TETCHI KOREY JOEL**, Comptable · +225 07 19 37 80 57 / +225 01 60 29 61 49 · heliontech97@gmail.com
 
 Application Windows pour **assistante de direction et secrétariat** : agenda, rendez-vous, réunions et procès-verbaux, messagerie, courrier, appels, tâches, rappels et notifications, réunis dans une interface simple, élégante et professionnelle.
 Tout fonctionne **sans Internet** (base locale sur le poste) ; la messagerie envoie et relève vos e-mails dès que la connexion est disponible.
 
-📘 **Manuel d’utilisation illustré (PDF, 31 pages)** : [docs/OfficiaTech-Manuel.pdf](docs/OfficiaTech-Manuel.pdf)
+📘 **Manuel d’utilisation illustré (PDF, 45 pages)** : [docs/OfficiaTech-Manuel.pdf](docs/OfficiaTech-Manuel.pdf)
 
 ![Ma journée](docs/accueil.png)
 
 | Agenda | Procès-verbal | Messagerie |
 |---|---|---|
 | ![](docs/agenda.png) | ![](docs/pv.png) | ![](docs/messagerie.png) |
+
+## Nouveautés de la version 1.10
+
+- **Messagerie** : « Se connecter avec Microsoft » (Outlook, Hotmail, Microsoft 365, OAuth 2.0), relève des dossiers **Envoyés, Archives, Indésirables**, copie des envois dans « Envoyés » du serveur, **lu/non lu et favoris synchronisés** avec le téléphone, **réponses rapides**.
+- **Agenda** : **invitations calendrier (.ics)** jointes aux confirmations et convocations, import/export `.ics`, rendez-vous privés, **rappel automatique des visiteurs la veille** (e-mail, ou WhatsApp/SMS en un clic).
+- **Réunions** : **feuille de présence** à faire signer, **suivi des actions non terminées** d’une séance à l’autre, « Planifier la réunion suivante », remarques et validation du PV par la Direction, dictée vocale Windows (`Windows+H`).
+- **Courrier** : plusieurs pièces par courrier, **numérisation directe** (scanner Windows → PDF), **circuit de traitement** (transmission, relances manuelles ou automatiques, réponse), **lettres sur papier à en-tête** (logo, mentions légales) en PDF et Word.
+- **Sécurité** : **sauvegarde quotidienne vers clé USB / Google Drive / OneDrive**, restauration en un clic, **verrouillage automatique** après inactivité et au verrouillage de Windows, **mises à jour intégrées**.
+- **Équipe** : serveur à installer sur votre VPS (`server/`) pour **partager agenda, réunions, tâches, courrier, appels et contacts entre plusieurs postes**, **espace mobile de la Direction** (agenda, validation des PV) et **agenda sur le téléphone** (abonnement iCal).
+- **Rapport d’activité mensuel** (PDF pour la Direction, Excel).
 
 ## Fonctionnalités
 
@@ -65,15 +75,15 @@ Annuaire avec favoris, étiquettes, coordonnées, **import CSV** (Excel, Outlook
 
 ## Installation sur Windows
 
-1. Sur GitHub, onglet **Actions** › **« OfficiaTech — installateur Windows »** (lancé automatiquement à chaque modification du dossier `officia/`, ou via **Run workflow**).
-2. Téléchargez l’artefact **OfficiaTech-Windows** : il contient `OfficiaTech-Setup-1.00.exe` et une version portable.
+1. Téléchargez `OfficiaTech-Setup-1.10.exe` dans les **Releases** du dépôt (étiquettes `officia-v…`), ou l’artefact **OfficiaTech-Windows** de l’onglet **Actions** › « OfficiaTech — installateur Windows ».
+2. Les versions suivantes s’installent depuis l’application (**Paramètres › Mises à jour**). Pour publier une version : changer `version` dans `package.json`, compléter `CHANGELOG.md`, puis pousser une étiquette `officia-vX.Y.Z`.
 3. Lancez l’installateur. Si SmartScreen s’affiche : **Informations complémentaires** › **Exécuter quand même** (application non signée).
 
 Construire soi-même sur un PC Windows (Node.js 24) :
 ```bash
 cd officia
 npm install
-npm run dist:win     # → release/OfficiaTech-Setup-1.00.exe
+npm run dist:win     # → release/OfficiaTech-Setup-1.10.exe
 ```
 
 ### Sessions
@@ -81,7 +91,16 @@ OfficiaTech gère **plusieurs sessions**, chacune avec ses propres données (age
 
 ### Premier démarrage
 Saisissez votre nom, votre fonction, l’organisation et la personne assistée. Cochez **données de démonstration** pour découvrir l’application avec un agenda, des réunions (dont un PV complet), des messages, des courriers et des appels fictifs.
-Ajoutez ensuite votre adresse e-mail dans **Paramètres › Messagerie** (bouton « Tester la connexion »). Pour Gmail ou Outlook avec validation en deux étapes, utilisez un **mot de passe d’application**.
+Ajoutez ensuite votre adresse e-mail dans **Paramètres › Messagerie** (bouton « Tester la connexion »). Gmail et Yahoo : **mot de passe d’application**. Outlook / Hotmail / Microsoft 365 : bouton **« Se connecter avec Microsoft »**, après avoir enregistré une fois l’application sur entra.microsoft.com (étapes affichées dans l’application et dans le manuel).
+
+### Serveur d’équipe (VPS)
+```bash
+cd officia/server
+cp .env.example .env          # SYNC_TOKEN=… (openssl rand -hex 24)
+nano Caddyfile                # votre nom de domaine → HTTPS automatique
+docker compose up -d --build
+```
+Puis, sur chaque poste : **Paramètres › Équipe** (adresse `https://votre-domaine`, jeton). L’espace mobile de la Direction est à `https://votre-domaine/m` ; les accès se créent dans le même écran.
 
 ---
 
@@ -91,14 +110,18 @@ Ajoutez ensuite votre adresse e-mail dans **Paramètres › Messagerie** (bouton
 cd officia
 npm install
 npm run dev     # Vite + Electron
-npm test        # agenda, récurrences, conflits, PV → tâches, notifications, courrier, envoi SMTP réel et boîte d’envoi hors ligne
+npm test        # 20 tests : agenda, PV, notifications, courrier, SMTP/IMAP réels (dossiers, lu/non lu, OAuth XOAUTH2, .ics), synchro d'équipe, accès mobile, rapport
 ```
 
 | Dossier | Rôle |
 |---|---|
 | `electron/db.js` | Base SQLite locale (`node:sqlite` intégré à Electron, aucun module natif) |
 | `electron/services.js` | Agenda et récurrences, conflits, réunions/PV, tâches, rappels, planificateur de notifications, courrier, appels, recherche, tableau de bord |
-| `electron/mail.js` | Messagerie : SMTP (nodemailer), IMAP (imapflow + mailparser), boîte d’envoi hors ligne |
+| `electron/mail.js` | Messagerie : SMTP (nodemailer), IMAP (imapflow + mailparser), dossiers spéciaux, drapeaux, boîte d’envoi hors ligne |
+| `electron/oauth.js` | Connexion Microsoft (OAuth 2.0 + PKCE, redirection locale) |
+| `electron/ics.js` | Invitations et agendas iCalendar (.ics) |
+| `electron/sync.js` | Synchronisation avec le serveur d’équipe |
+| `server/` | Serveur d’équipe pour VPS (Node.js sans dépendance, Docker + Caddy), espace mobile `mobile.html` |
 | `electron/main.js` | Fenêtre, zone de notification, notifications Windows, PDF, IPC, sauvegardes |
 | `src/` | Interface React |
 

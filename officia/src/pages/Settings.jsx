@@ -57,7 +57,7 @@ function Letterhead() {
           <Field label="Téléphone"><Input value={f.org_phone} onChange={set('org_phone')} /></Field>
           <Field label="E-mail"><Input value={f.org_email} onChange={set('org_email')} /></Field>
           <Field label="Ville (« Fait à … »)"><Input value={f.org_city} onChange={set('org_city')} placeholder="Abidjan" /></Field>
-          <Field label="Signataire des lettres"><Input value={f.letter_signatory} onChange={set('letter_signatory')} placeholder="La Directrice Générale, Mme …" /></Field>
+          <Field label="Signataire des lettres (2 lignes possibles)"><textarea className="input" style={{ minHeight: 58 }} value={f.letter_signatory || ''} onChange={(e) => set('letter_signatory')(e.target.value)} placeholder={'La Directrice Générale\nMme …'} /></Field>
           <Field label="Pied de page (mentions légales)" full><Input value={f.org_footer} onChange={set('org_footer')} placeholder="SARL au capital de … — RCCM … — CC …" /></Field>
         </div>
       </div>
@@ -400,7 +400,14 @@ function Updates() {
   const [busy, setBusy] = useState(false);
   const [pct, setPct] = useState(null);
   useEffect(() => on('update:progress', setPct), []);
-  const check = async () => { setBusy(true); const r = await act(() => call('update.check')); setBusy(false); if (r) setU(r); };
+  const check = async () => {
+    setBusy(true);
+    try { setU(await call('update.check')); } catch (e) {
+      const info = await call('app.info').catch(() => ({}));
+      setU({ current: info.version, error: /fetch failed|ENOTFOUND|network/i.test(e.message) ? 'Pas de connexion Internet : vérification impossible pour le moment.' : e.message });
+    }
+    setBusy(false);
+  };
   useEffect(() => { check(); }, []);
   const install = async () => {
     if (!(await confirmBox(`Installer OfficiaTech ${u.latest} ? L’application se fermera le temps de l’installation ; vos données sont conservées (une sauvegarde est faite avant).`, { okLabel: 'Installer' }))) return;
@@ -410,7 +417,7 @@ function Updates() {
   return (
     <Card title="Mises à jour" hint="Nouvelles versions publiées par le développeur">
       <div className="row between wrap" style={{ gap: 12 }}>
-        <div><b>Version installée : {u ? u.current : '…'}</b><div className="muted small">{!u ? 'Vérification…' : u.available ? `Nouvelle version disponible : ${u.latest}` : 'Vous utilisez la dernière version.'}</div></div>
+        <div><b>Version installée : {u ? u.current : '…'}</b><div className={`small ${u && u.error ? 'neg-val' : 'muted'}`}>{!u ? 'Vérification…' : u.error ? u.error : u.available ? `Nouvelle version disponible : ${u.latest}` : 'Vous utilisez la dernière version.'}</div></div>
         <div className="row" style={{ gap: 8 }}>
           <button className="btn" disabled={busy} onClick={check}><RefreshCw size={16} className={busy ? 'spin' : ''} />Vérifier</button>
           {u && u.available && <button className="btn primary" disabled={pct !== null} onClick={install}><DownloadCloud size={16} />{pct !== null ? `Téléchargement ${pct || 0} %` : `Installer la ${u.latest}`}</button>}

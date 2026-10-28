@@ -98,3 +98,15 @@ test('rapport mensuel d’activité et import d’un agenda .ics', () => {
   assert.equal(ag.find((e) => e.all_day).start, `${addDays(today(), 3)}T00:00:00`);
   assert.ok(stamp());
 });
+
+test('nouvelle session : modèles standards et réponses rapides sont tous créés, une seule fois', () => {
+  const { db, S } = fresh();
+  S.seedQuickReplies(); // ordre réel : à l'ouverture de la session, avant les modèles
+  S.seedTemplates();
+  S.seedQuickReplies();
+  S.seedTemplates();
+  const all = db.list('templates');
+  assert.equal(all.filter((t) => t.category === 'Réponse rapide').length, 5);
+  assert.ok(all.some((t) => t.name === 'Confirmation de rendez-vous'));
+  assert.equal(all.filter((t) => t.name === 'Confirmation de rendez-vous').length, 1);
+});

@@ -93,6 +93,13 @@ export function attendanceHtml(m, s) {
     <p class="muted">Nombre de participants : ……  ·  Le/La secrétaire de séance : ${esc(m.secretary || s.user_name || '')}</p>`, s);
 }
 
+// Bloc de signature : la fonction, l'espace pour signer, puis le nom.
+const signature = (txt) => {
+  const lines = String(txt).split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  if (lines.length < 2) return `${esc(lines[0] || '')}<div style="height:70px"></div>`;
+  return `${lines.slice(0, -1).map(esc).join('<br>')}<div style="height:62px"></div><b>${esc(lines[lines.length - 1])}</b>`;
+};
+
 // Lettre sur papier à en-tête (courrier départ).
 export function letterHtml(l, s) {
   const date = l.date || new Date().toISOString().slice(0, 10);
@@ -104,7 +111,7 @@ export function letterHtml(l, s) {
     <p>${esc(l.salutation || 'Madame, Monsieur,')}</p>
     ${String(l.body || '').split(/\n{2,}/).map((pp) => `<p>${para(pp)}</p>`).join('')}
     <p>${para(l.closing || 'Veuillez agréer, Madame, Monsieur, l’expression de nos salutations distinguées.')}</p>
-    <div class="sigblk">${para(l.signatory || s.letter_signatory || s.manager_name || '')}<div style="height:70px"></div></div>
+    <div class="sigblk">${signature(l.signatory || s.letter_signatory || s.manager_name || '')}</div>
     ${l.copies ? `<p class="muted" style="margin-top:30px">Copie(s) : ${esc(l.copies)}</p>` : ''}</div>`, s);
 }
 

@@ -683,8 +683,9 @@ function scanDocument() {
 // ---- Mises à jour : publications « officia-vX.Y.Z » du dépôt GitHub ----
 const newer = (a, b) => { const x = a.split('.').map(Number); const y = b.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
 async function checkUpdate() {
-  const res = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=30`, { headers: { 'User-Agent': 'OfficiaTech', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`Vérification impossible (GitHub ${res.status})`);
+  // OFFICIA_UPDATE_FEED : source de remplacement (tests, miroir interne).
+  const res = await fetch(process.env.OFFICIA_UPDATE_FEED || `https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=30`, { headers: { 'User-Agent': 'OfficiaTech', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(res.status === 403 || res.status === 429 ? 'Vérification momentanément impossible (limite GitHub atteinte), réessayez plus tard' : `Vérification impossible (GitHub ${res.status})`);
   const list = await res.json();
   const current = app.getVersion();
   let best = null;

@@ -190,7 +190,7 @@ export function LetterModal({ data = {}, onClose }) {
       </>}>
       <div className="form">
         <Field label="Destinataire (contact)"><Select value={l.contact_id} onChange={pick} placeholder="Choisir dans les contacts…" options={contacts.map((c) => [c.id, `${contactName(c)}${c.company ? ` · ${c.company}` : ''}`])} /></Field>
-        <Field label="Signataire"><Input value={l.signatory} onChange={set('signatory')} /></Field>
+        <Field label="Signataire"><textarea className="input" style={{ minHeight: 38 }} rows={2} value={l.signatory || ''} onChange={(e) => set('signatory')(e.target.value)} /></Field>
         <Field label="Adresse du destinataire" full><textarea className="input" style={{ minHeight: 76 }} value={l.recipient} onChange={(e) => set('recipient')(e.target.value)} placeholder={'Monsieur le Directeur\nSociété …\nBP …, Abidjan'} /></Field>
         <Field label="Objet" full><Input value={l.object} onChange={set('object')} /></Field>
         <Field label="N/Réf."><Input value={l.our_ref} onChange={set('our_ref')} /></Field>

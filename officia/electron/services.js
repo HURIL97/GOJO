@@ -685,7 +685,9 @@ function createServices(db) {
 
   // Modèles de messages standards, ajoutés à chaque nouvelle session.
   S.seedTemplates = () => {
-    if (db.get(`SELECT 1 FROM templates WHERE deleted = 0`)) return;
+    // Les réponses rapides (ajoutées à l'ouverture de la session) ne comptent pas comme des modèles existants.
+    if (db.meta('templates_seeded') || db.get(`SELECT 1 FROM templates WHERE deleted = 0 AND COALESCE(category, '') <> 'Réponse rapide'`)) return;
+    db.setMeta('templates_seeded', '1');
     const tpl = (name, category, subject, body) => db.save('templates', { name, category, subject, body });
     tpl('Confirmation de rendez-vous', 'Rendez-vous', 'Confirmation de votre rendez-vous du {{date}}',
       'Bonjour {{nom}},\n\nNous avons le plaisir de vous confirmer votre rendez-vous le {{date}} à {{heure}}, {{lieu}}.\n\nEn cas d’empêchement, merci de nous prévenir au plus tôt.\n\nBien cordialement,\n{{signature}}');
