@@ -77,7 +77,7 @@ function createMail(db, { encrypt, decrypt, filesDir, oauth = () => ({}) }) {
 
   const transport = async (a) => nodemailer.createTransport({
     host: a.smtp_host, port: Number(a.smtp_port) || 587, secure: !!Number(a.smtp_secure),
-    auth: isOauth(a) ? { type: 'OAuth2', user: a.username, accessToken: await accessToken(a) } : a.username ? { user: a.username, pass: a.password } : undefined,
+    auth: isOauth(a) ? { type: 'OAuth2', user: a.username, accessToken: await accessToken(a) } : a.username && a.password ? { user: a.username, pass: a.password } : undefined,
     connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 30000,
     tls: { minVersion: 'TLSv1.2' },
   });

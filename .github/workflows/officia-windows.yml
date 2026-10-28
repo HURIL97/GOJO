@@ -3,6 +3,7 @@ name: OfficiaTech — installateur Windows
 on:
   workflow_dispatch:
   push:
+    tags: ['officia-v*']
     branches: [main]
     paths:
       - 'officia/**'
@@ -26,6 +27,8 @@ jobs:
   windows:
     needs: test
     runs-on: windows-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: officia
@@ -45,3 +48,13 @@ jobs:
             officia/release/*.exe
             officia/release/*.zip
           if-no-files-found: error
+      # Une étiquette « officia-vX.Y.Z » publie la version : OfficiaTech la propose alors en mise à jour.
+      - name: Publication de la version
+        if: startsWith(github.ref, 'refs/tags/officia-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: OfficiaTech ${{ github.ref_name }}
+          body_path: officia/CHANGELOG.md
+          files: |
+            officia/release/*.exe
+            officia/release/*.zip

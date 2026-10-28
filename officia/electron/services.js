@@ -391,9 +391,9 @@ function createServices(db) {
   };
   S.saveCourrier = (data) =>
     db.tx(() => {
-      if (!data.correspondent) throw new Error('Indiquez l’expéditeur ou le destinataire');
-      if (!data.object) throw new Error('Indiquez l’objet du courrier');
-      const row = { ...data, date: data.date || today() };
+      if ((!data.id || 'correspondent' in data) && !data.correspondent) throw new Error('Indiquez l’expéditeur ou le destinataire');
+      if ((!data.id || 'object' in data) && !data.object) throw new Error('Indiquez l’objet du courrier');
+      const row = data.id ? { ...data } : { ...data, date: data.date || today() };
       if (!row.id) {
         // Numérotation chronologique par année et par sens : A-2026-0001 / D-2026-0001.
         const prefix = `${row.direction === 'depart' ? 'D' : 'A'}-${row.date.slice(0, 4)}-`;
@@ -575,7 +575,7 @@ function createServices(db) {
     if (!m) return { previous: null, tasks: [] };
     const prev = S.previousMeeting(m);
     if (!prev) return { previous: null, tasks: [] };
-    return { previous: { id: prev.id, title: prev.title, start: prev.start }, tasks: db.all(`SELECT * FROM tasks WHERE deleted = 0 AND meeting_id = ? AND status <> 'terminee' ORDER BY due`, prev.id) };
+    return { previous: { id: prev.id, title: prev.title, start: prev.start }, tasks: db.all(`SELECT * FROM tasks WHERE deleted = 0 AND meeting_id = ? AND status <> 'terminee' ORDER BY COALESCE(NULLIF(due, ''), '9999'), created_at`, prev.id) };
   };
   const followUpItem = (prev, tasks) => ({
     title: `Suivi des actions de la réunion du ${fr(prev.start)}`, presenter: '', duration: Math.max(10, tasks.length * 5),
@@ -586,7 +586,7 @@ function createServices(db) {
       const m = S.meeting(id);
       const at = start || (m.minutes && m.minutes.next_meeting) || addDays(m.start.slice(0, 10), 7) + m.start.slice(10);
       const dur = Math.max(30, minutesBetween(m.start, m.end));
-      const open = db.all(`SELECT * FROM tasks WHERE deleted = 0 AND meeting_id = ? AND status <> 'terminee' ORDER BY due`, id);
+      const open = db.all(`SELECT * FROM tasks WHERE deleted = 0 AND meeting_id = ? AND status <> 'terminee' ORDER BY COALESCE(NULLIF(due, ''), '9999'), created_at`, id);
       const agenda = [{ title: 'Validation du procès-verbal de la séance précédente', presenter: m.president || '', duration: 10 }];
       if (open.length) agenda.push(followUpItem(m, open));
       agenda.push({ title: 'Questions diverses', presenter: '', duration: 15 });
@@ -763,7 +763,7 @@ function createServices(db) {
             { title: 'Préparer le budget révisé du trimestre', owner: contactName(daf), due: addDays(d, 6) },
           ],
           conclusion: 'L’ordre du jour étant épuisé, la séance est levée à 11h50.', next_meeting: at(1, '10:00') },
-        status: 'pv_valide' });
+        status: 'pv_valide', pv_validated_at: at(-5, '17:30'), pv_validated_by: contactName(dg) });
       const doneAction = db.get(`SELECT id FROM tasks WHERE title LIKE 'Envoyer la note%'`);
       if (doneAction) S.saveTask({ id: doneAction.id, status: 'terminee' });
 

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
   Users2, Plus, ArrowLeft, Save, Send, FileDown, Printer, Trash2, ListOrdered, ClipboardCheck, FileSignature,
-  CheckCircle2, Wand2, MapPin, Video, UserPlus, Search,
+  CheckCircle2, Wand2, MapPin, Video, UserPlus, Search, Mic, History, CalendarClock, ClipboardList, MessageSquareWarning,
 } from 'lucide-react';
 import { call } from '../lib/api';
 import { useData, act } from '../lib/hooks';
 import { useApp } from '../lib/context';
 import { fmtLong, fmtShort, fmtTime, relDay, MEETING_STATUS, contactName, addMinutes, stamp, localDay, TASK_STATUS } from '../lib/format';
 import { Card, Tabs, Badge, StatusBadge, Empty, Field, Input, Select, toast, confirmBox } from '../components/ui';
-import { convocationHtml, pvHtml, printHtml, savePdf } from '../lib/print';
+import { convocationHtml, pvHtml, attendanceHtml, printHtml, savePdf } from '../lib/print';
 
 const FLOW = ['preparation', 'convoquee', 'tenue', 'pv_valide', 'pv_diffuse'];
 const FLOW_LABEL = { preparation: 'Préparation', convoquee: 'Convocation', tenue: 'Séance', pv_valide: 'PV validé', pv_diffuse: 'PV diffusé' };
@@ -29,7 +29,7 @@ function Stepper({ status }) {
   );
 }
 
-function Editor({ id, initial, onBack, initialTab }) {
+function Editor({ id, initial, onBack, initialTab, onOpen }) {
   const { settings, open } = useApp();
   const [m, setM] = useState(null);
   const [tab, setTab] = useState(initialTab || 'prep');
@@ -71,7 +71,7 @@ function Editor({ id, initial, onBack, initialTab }) {
   const emails = parts.map((p) => p.email).filter(Boolean).join(', ');
   const sendConvocation = async () => {
     const saved = await save(true); if (!saved) return;
-    open('mail', { to_addr: emails, subject: `Convocation — ${saved.title} — ${fmtLong(saved.start)}`, title: 'Envoyer la convocation', link_type: 'meeting', link_id: saved.id,
+    open('mail', { to_addr: emails, subject: `Convocation — ${saved.title} — ${fmtLong(saved.start)}`, title: 'Envoyer la convocation', link_type: 'meeting', link_id: saved.id, invite_event: saved.event_id,
       text: `Madame, Monsieur,\n\nVous êtes convié(e) à la réunion « ${saved.title} » qui se tiendra le ${fmtLong(saved.start)} de ${fmtTime(saved.start)} à ${fmtTime(saved.end)}${saved.location ? `, ${saved.location}` : ''}.${saved.visio_url ? `\nLien de visioconférence : ${saved.visio_url}` : ''}\n\nOrdre du jour :\n${(saved.agenda || []).map((a, i) => `${i + 1}. ${a.title}`).join('\n')}\n\nVous trouverez la convocation en pièce jointe.\n\nBien cordialement,`,
       pdf: { html: convocationHtml(saved, settings), filename: `Convocation - ${saved.title}`, kind: 'convocation' } });
   };
@@ -80,6 +80,14 @@ function Editor({ id, initial, onBack, initialTab }) {
     open('mail', { to_addr: emails, subject: `Procès-verbal — ${saved.title} du ${fmtShort(saved.start)}`, title: 'Diffuser le procès-verbal', link_type: 'meeting', link_id: saved.id,
       text: `Madame, Monsieur,\n\nVeuillez trouver ci-joint le procès-verbal de la réunion « ${saved.title} » du ${fmtLong(saved.start)}.\n\nRelevé des actions :\n${(saved.minutes.actions || []).filter((a) => a.title).map((a) => `• ${a.title}${a.owner ? ` — ${a.owner}` : ''}${a.due ? ` (avant le ${fmtShort(a.due)})` : ''}`).join('\n') || '—'}\n\nBien cordialement,`,
       pdf: { html: pvHtml(saved, settings), filename: `PV - ${saved.title} - ${saved.start.slice(0, 10)}`, kind: 'pv' } });
+  };
+  // Suivi : actions non terminées de la réunion précédente, séance suivante.
+  const carry = async () => { const saved = dirty || !m.id ? await save(true) : m; if (!saved) return; const r = await act(() => call('meetings.carry', saved.id), 'Point « Suivi des actions » ajouté à l’ordre du jour'); if (r) { setM(r); setDirty(false); } };
+  const planNext = async () => {
+    const saved = dirty || !m.id ? await save(true) : m; if (!saved) return;
+    if (!(await confirmBox(`Créer la prochaine séance « ${saved.title} »${saved.minutes.next_meeting ? ` le ${fmtLong(saved.minutes.next_meeting)}` : ' (dans 7 jours, modifiable)'} avec les mêmes participants et le suivi des actions en cours ?`, { okLabel: 'Planifier' }))) return;
+    const r = await act(() => call('meetings.next', saved.id), 'Prochaine réunion planifiée');
+    if (r && onOpen) onOpen(r.id);
   };
   const counts = { present: parts.filter((p) => p.presence === 'present').length, excuse: parts.filter((p) => p.presence === 'excuse').length, absent: parts.filter((p) => p.presence === 'absent').length };
   const totalDuration = agenda.reduce((s, a) => s + (Number(a.duration) || 0), 0);
@@ -113,9 +121,10 @@ function Editor({ id, initial, onBack, initialTab }) {
             </div>
           </Card>
           <div className="col" style={{ gap: 16 }}>
-            <Card title="Ordre du jour" hint={totalDuration ? `Durée prévue : ${totalDuration} min` : 'Ajoutez les points à traiter'} right={<button className="btn sm" onClick={() => set({ agenda: [...agenda, { title: '', presenter: '', duration: 15 }] })}><Plus size={14} />Point</button>}>
+            <Card title="Ordre du jour" hint={totalDuration ? `Durée prévue : ${totalDuration} min` : 'Ajoutez les points à traiter'} right={<div className="row" style={{ gap: 6 }}><button className="btn sm" title="Ajouter les actions non terminées de la réunion précédente (même intitulé)" onClick={carry}><History size={14} />Suivi des actions</button><button className="btn sm" onClick={() => set({ agenda: [...agenda, { title: '', presenter: '', duration: 15 }] })}><Plus size={14} />Point</button></div>}>
               {agenda.map((a, i) => (
-                <div key={i} className="agenda-item">
+                <div key={i}>
+                <div className="agenda-item">
                   <span className="n">{i + 1}</span>
                   <input className="input" value={a.title} placeholder="Intitulé du point" onChange={(e) => setItem(i, { title: e.target.value })} />
                   <input className="input" value={a.presenter || ''} placeholder="Présenté par" onChange={(e) => setItem(i, { presenter: e.target.value })} />
@@ -124,6 +133,12 @@ function Editor({ id, initial, onBack, initialTab }) {
                     {i > 0 && <button className="btn ghost sm icon" style={{ height: 18 }} onClick={() => moveItem(i, -1)}>▲</button>}
                     <button className="btn ghost sm icon" style={{ height: 18 }} onClick={() => set({ agenda: agenda.filter((_, j) => j !== i) })}><Trash2 size={12} /></button>
                   </div>
+                </div>
+                {Array.isArray(a.carried) && a.carried.length > 0 && (
+                  <div style={{ margin: '-4px 0 10px 40px' }}>
+                    {a.carried.map((t) => <div key={t.task_id} className="row small" style={{ gap: 8, padding: '3px 0' }}><span className="dot" style={{ background: t.status === 'en_cours' ? 'var(--info)' : 'var(--warn)' }} /><span style={{ flex: 1 }}>{t.title}</span><span className="muted">{t.owner}{t.due ? ` · ${fmtShort(t.due)}` : ''}</span><Badge kind={t.status === 'en_cours' ? 'info' : 'warn'}>{TASK_STATUS[t.status]}</Badge></div>)}
+                  </div>
+                )}
                 </div>
               ))}
               {!agenda.length && <Empty icon={ListOrdered}>Aucun point pour l’instant</Empty>}
@@ -147,7 +162,7 @@ function Editor({ id, initial, onBack, initialTab }) {
       {tab === 'seance' && (
         <div className="grid" style={{ gridTemplateColumns: '1fr 1.7fr' }}>
           <div className="col" style={{ gap: 16 }}>
-            <Card title="Feuille de présence" hint={`${counts.present} présent(s) · ${counts.excuse} excusé(s) · ${counts.absent} absent(s)`}>
+            <Card title="Feuille de présence" hint={`${counts.present} présent(s) · ${counts.excuse} excusé(s) · ${counts.absent} absent(s)`} right={<button className="btn sm" title="Feuille d’émargement à faire signer" onClick={() => printHtml(attendanceHtml(m, settings))}><ClipboardList size={14} />Imprimer</button>}>
               {parts.map((p, i) => (
                 <div key={i} className="list-row">
                   <div style={{ flex: 1 }}><b>{p.name}</b><div className="muted small">{p.role}</div></div>
@@ -167,7 +182,8 @@ function Editor({ id, initial, onBack, initialTab }) {
               {m.status === 'preparation' || m.status === 'convoquee' ? <button className="btn mt" onClick={() => status('tenue', 'Réunion marquée comme tenue')}><CheckCircle2 size={16} />Marquer la réunion comme tenue</button> : null}
             </Card>
           </div>
-          <Card title="Procès-verbal" right={<button className="btn sm" onClick={prefill}><Wand2 size={14} />Reprendre l’ordre du jour</button>}>
+          <Card title="Procès-verbal" hint={<span className="row" style={{ gap: 5 }}><Mic size={13} />Dictée vocale : cliquez dans un champ puis appuyez sur <b>Windows + H</b></span>} right={<button className="btn sm" onClick={prefill}><Wand2 size={14} />Reprendre l’ordre du jour</button>}>
+            {m.pv_remarks && <div className="card" style={{ boxShadow: 'none', background: 'var(--warn-soft)', marginBottom: 12 }}><div className="row" style={{ gap: 6, color: 'var(--warn)', fontWeight: 650 }}><MessageSquareWarning size={16} />Remarques de la Direction</div><div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{m.pv_remarks}</div></div>}
             <Field label="Ouverture de la séance"><textarea className="input" value={min.intro || ''} onChange={(e) => setMin({ intro: e.target.value })} placeholder="La séance est ouverte à … sous la présidence de …" /></Field>
             <div className="mt">
               {points.map((p, i) => (
@@ -201,6 +217,17 @@ function Editor({ id, initial, onBack, initialTab }) {
 
       {tab === 'diffusion' && (
         <div className="grid g2">
+          <Card title="Feuille de présence" hint="Émargement à faire signer en début de séance">
+            <p className="muted">Liste des participants convoqués, avec colonnes « arrivée » et « émargement », et des lignes libres pour les invités.</p>
+            <div className="row wrap">
+              <button className="btn" onClick={() => printHtml(attendanceHtml(m, settings))}><Printer size={16} />Imprimer</button>
+              <button className="btn" onClick={() => savePdf(attendanceHtml(m, settings), `Feuille de presence - ${m.title}`)}><FileDown size={16} />PDF</button>
+            </div>
+          </Card>
+          <Card title="Séance suivante" hint={min.next_meeting ? `Prévue le ${fmtLong(min.next_meeting)}` : 'Date à fixer'}>
+            <p className="muted">Crée la prochaine réunion avec les mêmes participants, la validation du PV et le <b>suivi des actions non terminées</b> à l’ordre du jour.</p>
+            <button className="btn primary" disabled={!m.id} onClick={planNext}><CalendarClock size={16} />Planifier la réunion suivante</button>
+          </Card>
           <Card title="Convocation" hint={m.convocation_sent_at ? `Envoyée le ${fmtShort(m.convocation_sent_at)} à ${fmtTime(m.convocation_sent_at)}` : 'Non envoyée'}>
             <p className="muted">Document officiel reprenant la date, le lieu, l’ordre du jour et la liste des participants.</p>
             <div className="row wrap">
@@ -210,7 +237,7 @@ function Editor({ id, initial, onBack, initialTab }) {
             </div>
             {!emails && parts.length > 0 && <p className="small neg-val mt">Aucun participant n’a d’adresse e-mail.</p>}
           </Card>
-          <Card title="Procès-verbal" hint={m.pv_sent_at ? `Diffusé le ${fmtShort(m.pv_sent_at)}` : m.pv_validated_at ? `Validé le ${fmtShort(m.pv_validated_at)}` : 'Projet'}>
+          <Card title="Procès-verbal" hint={m.pv_sent_at ? `Diffusé le ${fmtShort(m.pv_sent_at)}` : m.pv_validated_at ? `Validé le ${fmtShort(m.pv_validated_at)}${m.pv_validated_by ? ` par ${m.pv_validated_by}` : ''}` : 'Projet'}>
             <p className="muted">PV mis en page avec présences, décisions, relevé des actions et zones de signature.</p>
             <div className="row wrap">
               <button className="btn" onClick={() => printHtml(pvHtml(m, settings))}><Printer size={16} />Imprimer</button>
@@ -233,7 +260,7 @@ export default function Meetings() {
   const [rows] = useData('meetings.list', [{ q, status }], [q, status]);
   useEffect(() => { if (nav.id) setCurrent({ id: nav.id, tab: nav.tab }); else if (nav.create) setCurrent({ create: true, data: nav.data }); }, [nav.k]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (current) return <Editor key={current.id || 'new'} id={current.id} initial={current.data} initialTab={current.tab} onBack={() => { setCurrent(null); go('meetings'); }} />;
+  if (current) return <Editor key={current.id || 'new'} id={current.id} initial={current.data} initialTab={current.tab} onOpen={(nid) => setCurrent({ id: nid })} onBack={() => { setCurrent(null); go('meetings'); }} />;
   const upcoming = (rows || []).filter((m) => m.start >= `${localDay()}T00:00:00`).reverse();
   const past = (rows || []).filter((m) => m.start < `${localDay()}T00:00:00`);
   const row = (m) => (

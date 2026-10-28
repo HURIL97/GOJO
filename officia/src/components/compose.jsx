@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Send, Paperclip, Save, X, FileText, Wand2 } from 'lucide-react';
+import { Send, Paperclip, Save, X, FileText, Wand2, CalendarPlus } from 'lucide-react';
 import { call } from '../lib/api';
 import { act } from '../lib/hooks';
 import { useApp } from '../lib/context';
@@ -13,6 +13,7 @@ export function ComposeModal({ data = {}, onClose }) {
   const [contacts, setContacts] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [m, setM] = useState({ to_addr: '', cc: '', subject: '', text: '', attachments: [], ...data, pdf: undefined });
+  const [invite, setInvite] = useState(!!data.invite_event);
   const [showCc, setShowCc] = useState(!!data.cc);
   const [sending, setSending] = useState(false);
   const set = (k) => (v) => setM((x) => ({ ...x, [k]: v }));
@@ -51,7 +52,7 @@ export function ComposeModal({ data = {}, onClose }) {
   };
 
   const attach = async () => { const files = await act(() => call('mail.pickFiles')); if (files && files.length) setM((x) => ({ ...x, attachments: [...(x.attachments || []), ...files] })); };
-  const payload = () => { const p = { ...m }; delete p.signed; delete p.vars; delete p.pdfLabel; return p; };
+  const payload = () => { const p = { ...m }; delete p.signed; delete p.vars; delete p.pdfLabel; delete p.title; if (!invite) delete p.invite_event; return p; };
 
   const sendNow = async () => {
     setSending(true);
@@ -92,6 +93,7 @@ export function ComposeModal({ data = {}, onClose }) {
         <Field label="Objet"><input className="input" value={m.subject} onChange={(e) => set('subject')(e.target.value)} /></Field>
         <Field label="Message"><textarea className="input" value={m.text} onChange={(e) => set('text')(e.target.value)} /></Field>
         <div className="row wrap" style={{ gap: 8 }}>
+          {data.invite_event && <label className="att" style={{ cursor: 'pointer' }}><input type="checkbox" checked={invite} onChange={(e) => setInvite(e.target.checked)} /><CalendarPlus size={14} color="var(--accent)" />Invitation calendrier (.ics) : ajout à l’agenda du destinataire en un clic</label>}
           {data.pdf && <span className="att"><FileText size={14} color="var(--bad)" />{data.pdf.filename}.pdf <span className="muted">(généré à l’envoi)</span></span>}
           {(m.attachments || []).map((a, i) => (
             <span key={i} className="att"><Paperclip size={13} />{a.filename}<X size={13} style={{ cursor: 'pointer' }} onClick={() => setM((x) => ({ ...x, attachments: x.attachments.filter((_, j) => j !== i) }))} /></span>
@@ -109,6 +111,9 @@ export function confirmationDraft(ev, contact) {
     to_addr: contact && contact.email ? contact.email : '',
     subject: `Confirmation de votre rendez-vous du ${fmtLong(ev.start)}`,
     vars: { date: fmtLong(ev.start), heure: fmtTime(ev.start), lieu: ev.location || 'dans nos locaux', objet: ev.title },
+    invite_event: ev.id,
+    link_type: 'event',
+    link_id: ev.id,
     text: '',
     title: 'Confirmer le rendez-vous',
   };

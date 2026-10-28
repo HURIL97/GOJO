@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Download, Printer, Inbox, Send, Paperclip, FileText, Search } from 'lucide-react';
+import { Plus, Download, Printer, Inbox, Send, Paperclip, FileText, Search, PenLine } from 'lucide-react';
 import { call } from '../lib/api';
 import { useData, act } from '../lib/hooks';
 import { useApp } from '../lib/context';
@@ -37,6 +37,7 @@ export default function Courrier() {
         <div className="grow" />
         <button className="btn" onClick={() => printHtml(registerHtml(list, `${label} — ${year}`, settings))}><Printer size={16} /></button>
         <button className="btn" onClick={() => call('export.csv', `courrier-${direction}-${year}`, exportRows)}><Download size={16} />Excel</button>
+        <button className="btn" onClick={() => open('letter', {})}><PenLine size={16} />Rédiger une lettre</button>
         <button className="btn primary" onClick={() => open('courrier', { direction })}><Plus size={16} />Enregistrer</button>
       </div>
       <Card title={label} hint={`${list.length} enregistrement(s) · numérotation automatique`}>
@@ -50,7 +51,7 @@ export default function Courrier() {
                   <td className="muted small">{c.reference}</td><td className="muted">{COURRIER_MODE[c.mode] || c.mode}</td><td>{c.assigned_to}</td>
                   <td className={c.due && c.due < t && ['enregistre', 'en_traitement'].includes(c.status) ? 'neg-val' : ''}>{c.due ? fmtShort(c.due) : ''}</td>
                   <td><StatusBadge map={COURRIER_STATUS} value={c.status} /></td>
-                  <td>{c.attachment ? <button className="btn ghost sm icon" title="Ouvrir la pièce numérisée" onClick={(e) => { e.stopPropagation(); act(() => call('file.open', c.attachment)); }}><Paperclip size={14} /></button> : null}</td>
+                  <td>{(() => { const first = (Array.isArray(c.files) && c.files[0]) ? c.files[0].path : c.attachment; const n = (Array.isArray(c.files) ? c.files.length : 0) || (c.attachment ? 1 : 0); return first ? <button className="btn ghost sm" title="Ouvrir la pièce" onClick={(e) => { e.stopPropagation(); act(() => call('file.open', first)); }}><Paperclip size={14} />{n > 1 ? n : ''}</button> : null; })()}</td>
                 </tr>
               ))}
             </tbody>

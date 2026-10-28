@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   CalendarDays, Users2, AlertTriangle, Mail, Inbox, PhoneCall, Clock3, MapPin, Video, Printer, Plus, Check, BellRing,
-  FileSignature, ChevronRight, Star, Timer, CalendarPlus, ListChecks, StickyNote,
+  FileSignature, ChevronRight, Star, Timer, CalendarPlus, ListChecks, StickyNote, UserCheck, Send,
 } from 'lucide-react';
 import { call } from '../lib/api';
 import { useData, act } from '../lib/hooks';
@@ -26,6 +26,30 @@ function Kpi({ icon: Icon, label, value, hint, color, onClick, alert }) {
       <div className="value num" style={alert ? { color: 'var(--bad)' } : null}>{value}</div>
       <div className="delta">{hint}</div>
     </div>
+  );
+}
+
+// Visiteurs de demain : rappel automatique par e-mail, ou WhatsApp / SMS pour ceux qui n'ont pas d'adresse.
+function Visitors() {
+  const { open, settings } = useApp();
+  const [list, reload] = useData('agenda.visitors');
+  if (!list || !list.length) return null;
+  const mark = async (v) => { await act(() => call('agenda.markReminded', v.id), `${v.contact.name} marqué comme prévenu`); reload(); };
+  return (
+    <Card title="Visiteurs de demain" hint={settings.visitor_reminder === '1' ? `Rappel automatique par e-mail à ${settings.visitor_reminder_hour || '16:00'}` : 'Rappel automatique désactivé (Paramètres › Rappels)'}>
+      {list.map((v) => (
+        <div key={v.id} className="list-row">
+          <UserCheck size={16} color={v.reminded ? 'var(--good)' : 'var(--warn)'} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="strong">{v.contact.name} <span className="muted">· {fmtTime(v.start)}</span></div>
+            <div className="muted small">{v.title}{v.reminded ? ` · prévenu ${ago(v.reminded)}` : v.contact.email ? ' · rappel e-mail prévu' : ' · sans e-mail : à prévenir'}</div>
+          </div>
+          {v.contact.email && !v.reminded && <button className="btn sm icon" title="Envoyer le rappel maintenant" onClick={() => open('mail', { to_addr: v.contact.email, subject: `Rappel : votre rendez-vous de demain à ${fmtTime(v.start)}`, text: v.message, invite_event: v.id, remind_visitor: v.id, title: 'Rappel au visiteur' })}><Send size={14} /></button>}
+          {v.contact.phone && <PhoneActions phone={v.contact.phone} text={v.message} />}
+          {!v.reminded && <button className="btn sm ghost icon" title="Marquer comme prévenu" onClick={() => mark(v)}><Check size={14} /></button>}
+        </div>
+      ))}
+    </Card>
   );
 }
 
@@ -130,6 +154,7 @@ export default function Home() {
               </div>
             )) : <Empty icon={ListChecks}>Tout est à jour 🎉</Empty>}
           </Card>
+          <Visitors />
           <Card title="Rappels" right={<button className="btn sm icon" onClick={() => open('reminder')}><Plus size={14} /></button>}>
             {d.reminders.length ? d.reminders.map((r) => (
               <div key={r.id} className="list-row" style={{ cursor: 'pointer' }} onClick={() => open('reminder', r)}>

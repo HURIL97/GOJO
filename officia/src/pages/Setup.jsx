@@ -7,7 +7,7 @@ import { ABOUT } from '../lib/about';
 
 const DEMO_SETTINGS = { user_name: 'Awa Kouassi', user_title: 'Assistante de direction', organisation: 'Société de démonstration', manager_name: 'Mme Aminata Koné, Directrice générale' };
 
-function Art() {
+export function Art() {
   return (
     <div className="login-art" style={{ background: 'radial-gradient(800px 500px at 20% 10%, rgba(123,108,255,.42), transparent 60%), radial-gradient(700px 500px at 90% 90%, rgba(31,181,204,.32), transparent 60%), #0b0d1c' }}>
       <div className="brand" style={{ padding: 0 }}>
@@ -66,29 +66,29 @@ function CreateForm({ onCreated, onBack }) {
   );
 }
 
-function PinPad({ profile, onBack, onOpened }) {
+export function PinPad({ profile, onBack, onOpened, unlock, hint = 'Saisissez votre code de session', backLabel = 'Sessions' }) {
   const [pin, setPin] = useState('');
   const [err, setErr] = useState(false);
   const submit = useCallback(async (p) => {
-    try { await call('session.open', profile.id, p); onOpened(); } catch { setErr(true); setTimeout(() => { setErr(false); setPin(''); }, 400); }
-  }, [profile, onOpened]);
+    try { await (unlock ? call('session.unlock', p) : call('session.open', profile.id, p)); onOpened(); } catch { setErr(true); setTimeout(() => { setErr(false); setPin(''); }, 400); }
+  }, [profile, onOpened, unlock]);
   const press = useCallback((k) => {
     if (k === 'del') return setPin((p) => p.slice(0, -1));
     if (k === 'ok') return pin.length >= 4 && submit(pin);
     setPin((p) => (p.length < 8 ? p + k : p));
   }, [pin, submit]);
   useEffect(() => {
-    const h = (e) => { if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') press('del'); else if (e.key === 'Enter') press('ok'); else if (e.key === 'Escape') onBack(); };
+    const h = (e) => { if (/^\d$/.test(e.key)) press(e.key); else if (e.key === 'Backspace') press('del'); else if (e.key === 'Enter') press('ok'); else if (e.key === 'Escape' && !unlock) onBack(); };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [press, onBack]);
+  }, [press, onBack, unlock]);
   return (
     <div className="login-box" style={{ width: 360, textAlign: 'center' }}>
-      <button className="btn ghost sm" style={{ float: 'left' }} onClick={onBack}><ArrowLeft size={15} />Sessions</button>
+      <button className="btn ghost sm" style={{ float: 'left' }} onClick={onBack}><ArrowLeft size={15} />{backLabel}</button>
       <div style={{ clear: 'both' }} />
       <div className="avatar" style={{ width: 64, height: 64, fontSize: 22, margin: '6px auto 12px' }}>{initials(profile.name)}</div>
       <h2 style={{ margin: 0 }}>{profile.name}</h2>
-      <p className="muted" style={{ margin: '4px 0 0' }}>Saisissez votre code de session</p>
+      <p className="muted" style={{ margin: '4px 0 0' }}>{hint}</p>
       <div className={`pin-dots ${err ? 'shake' : ''}`}>{Array.from({ length: Math.max(4, pin.length) }).map((_, i) => <i key={i} className={i < pin.length ? 'on' : ''} />)}</div>
       <div className="pinpad">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok'].map((k) => (

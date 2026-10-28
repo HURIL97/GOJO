@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Printer, MapPin, Repeat, CalendarDays, Video } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Printer, MapPin, Repeat, CalendarDays, Video, Upload, Download } from 'lucide-react';
 import { call } from '../lib/api';
 import { useData, act } from '../lib/hooks';
 import { useApp } from '../lib/context';
@@ -209,6 +209,8 @@ export default function Agenda() {
         <div className="grow" />
         <Tabs value={view} onChange={setView} tabs={[['day', 'Jour'], ['week', 'Semaine'], ['month', 'Mois'], ['list', 'Liste']]} />
         <button className="btn" title="Imprimer" onClick={() => printHtml(dayHtml(view === 'day' ? anchor : localDay(), (events || []).filter((e) => e.start.slice(0, 10) === (view === 'day' ? anchor : localDay())), [], settings))}><Printer size={16} /></button>
+        <button className="btn icon" title="Importer un agenda (.ics : Google Agenda, Outlook, téléphone)" onClick={async () => { const r = await act(() => call('agenda.importIcs')); if (r) toast(`${r.added} évènement(s) importé(s)${r.updated ? `, ${r.updated} mis à jour` : ''}`, 'success'); }}><Upload size={16} /></button>
+        <button className="btn icon" title="Exporter l’agenda (.ics)" onClick={async () => { const r = await act(() => call('agenda.exportIcs')); if (r) toast(`${r.count} évènement(s) exporté(s)`, 'success'); }}><Download size={16} /></button>
         <button className="btn primary" onClick={() => open('event')}><Plus size={16} />Nouvel évènement</button>
       </div>
       <div className="type-legend">

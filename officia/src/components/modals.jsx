@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MessageCircle, MessageSquareText, CalendarPlus, AlertTriangle, ListChecks, BellRing, Phone, FileText, UserRound, StickyNote, Trash2, Send, Video, Paperclip, X } from 'lucide-react';
+import { MessageCircle, MessageSquareText, CalendarPlus, AlertTriangle, ListChecks, BellRing, Phone, UserRound, StickyNote, Trash2, Send, Video, X } from 'lucide-react';
 import { call } from '../lib/api';
 import { act } from '../lib/hooks';
 import { useApp } from '../lib/context';
 import {
-  TYPES, EV_STATUS, REMINDER_OPTIONS, REPEAT, PRIORITY, TASK_STATUS, COURRIER_STATUS, COURRIER_MODE, CALL_STATUS,
+  TYPES, EV_STATUS, REMINDER_OPTIONS, REPEAT, PRIORITY, TASK_STATUS, CALL_STATUS,
   addMinutes, localDay, stamp, contactName, fmtTime,
 } from '../lib/format';
 import { Modal, Field, Input, Select, confirmBox, toast } from './ui';
 import { ComposeModal, confirmationDraft } from './compose';
+import { CourrierModal, LetterModal } from './courrier';
 import { openPhone, waUrl, smsUrl, rdvMessage } from '../lib/phone';
 
 const nextSlot = () => {
@@ -96,7 +97,8 @@ export function EventModal({ data = {}, onClose }) {
         <Field label="Titre" full><Input autoFocus value={f.title} onChange={set('title')} placeholder={f.type === 'reunion' ? 'Comité de direction…' : 'Rendez-vous avec…'} /></Field>
         <Field label={f.all_day ? 'Du' : 'Début'}><input className="input" type={f.all_day ? 'date' : 'datetime-local'} value={f.all_day ? f.start.slice(0, 10) : f.start} onChange={(e) => changeStart(f.all_day ? `${e.target.value}T00:00` : e.target.value)} /></Field>
         <Field label={f.all_day ? 'Au' : 'Fin'}><input className="input" type={f.all_day ? 'date' : 'datetime-local'} value={f.all_day ? f.end.slice(0, 10) : f.end} onChange={(e) => set('end')(f.all_day ? `${e.target.value}T23:59` : e.target.value)} /></Field>
-        <label className="check full"><input type="checkbox" checked={!!f.all_day} onChange={(e) => set('all_day')(e.target.checked ? 1 : 0)} /> Toute la journée</label>
+        <label className="check"><input type="checkbox" checked={!!f.all_day} onChange={(e) => set('all_day')(e.target.checked ? 1 : 0)} /> Toute la journée</label>
+        <label className="check" title="Sur l’agenda partagé (téléphone de la Direction, abonnement), seul « Occupé » apparaît"><input type="checkbox" checked={!!f.private} onChange={(e) => set('private')(e.target.checked ? 1 : 0)} /> Privé (affiché « Occupé » à l’extérieur)</label>
         {conflicts.length > 0 && (
           <div className="full card" style={{ boxShadow: 'none', background: 'var(--warn-soft)', padding: 12 }}>
             <div className="row" style={{ color: 'var(--warn)', fontWeight: 650 }}><AlertTriangle size={16} />Conflit d’agenda</div>
@@ -199,43 +201,6 @@ export function CallModal({ data = {}, onClose }) {
   );
 }
 
-export function CourrierModal({ data = {}, onClose }) {
-  const { settings } = useApp();
-  const [f, setF] = useState({ direction: 'arrivee', mode: 'poste', status: 'enregistre', date: localDay(), assigned_to: settings.manager_name || '', ...data });
-  const [contacts, setContacts] = useState([]);
-  useEffect(() => { call('contacts.list', '').then(setContacts).catch(() => {}); }, []);
-  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
-  const pickContact = (id) => { const c = contacts.find((x) => x.id === id); setF((x) => ({ ...x, contact_id: id, correspondent: c ? (c.company || contactName(c)) : x.correspondent })); };
-  const save = async () => { const r = await act(() => call('courrier.save', f), f.id ? 'Courrier modifié' : 'Courrier enregistré'); if (r) onClose(r); };
-  const attach = async () => { const p = await act(() => call('file.attach')); if (p) set('attachment')(p); };
-  return (
-    <Modal size="wide" title={f.id ? `Courrier ${f.number}` : 'Enregistrer un courrier'} icon={<FileText size={19} color="var(--accent)" />} onClose={() => onClose()}
-      footer={<><DeleteBtn table="courrier" id={f.id} onDone={() => onClose()} /><div style={{ flex: 1 }} /><button className="btn" onClick={() => onClose()}>Annuler</button><button className="btn primary" onClick={save}>Enregistrer</button></>}>
-      <div className="tabs" style={{ marginBottom: 16 }}>
-        {[['arrivee', 'Courrier arrivée'], ['depart', 'Courrier départ']].map(([k, l]) => <button key={k} disabled={!!f.id} className={`tab ${f.direction === k ? 'active' : ''}`} onClick={() => set('direction')(k)}>{l}</button>)}
-      </div>
-      <div className="form">
-        <Field label="Date"><Input type="date" value={f.date} onChange={set('date')} /></Field>
-        <Field label="Mode"><Select value={f.mode} onChange={set('mode')} options={Object.entries(COURRIER_MODE)} /></Field>
-        <Field label="Contact (facultatif)"><ContactPicker value={f.contact_id} onChange={pickContact} contacts={contacts} /></Field>
-        <Field label={f.direction === 'depart' ? 'Destinataire' : 'Expéditeur'}><Input value={f.correspondent} onChange={set('correspondent')} /></Field>
-        <Field label="Objet" full><Input value={f.object} onChange={set('object')} /></Field>
-        <Field label="Référence"><Input value={f.reference} onChange={set('reference')} placeholder="N° / référence du courrier" /></Field>
-        <Field label="Attribué à"><Input value={f.assigned_to} onChange={set('assigned_to')} /></Field>
-        <Field label="Statut"><Select value={f.status} onChange={set('status')} options={Object.entries(COURRIER_STATUS).map(([k, [l]]) => [k, l])} /></Field>
-        <Field label="À traiter avant le"><Input type="date" value={f.due} onChange={set('due')} /></Field>
-        <Field label="Pièce numérisée" full>
-          <div className="row">
-            {f.attachment ? <span className="att" onClick={() => call('file.open', f.attachment)}><Paperclip size={13} />{f.attachment.split(/[\\/]/).pop().replace(/^\d+-/, '')}</span> : <span className="muted small">Aucun fichier</span>}
-            <button className="btn sm" onClick={attach}><Paperclip size={14} />{f.attachment ? 'Remplacer' : 'Joindre le scan'}</button>
-          </div>
-        </Field>
-        <Field label="Notes" full><textarea className="input" value={f.notes || ''} onChange={(e) => set('notes')(e.target.value)} /></Field>
-      </div>
-    </Modal>
-  );
-}
-
 export function ContactModal({ data = {}, onClose }) {
   const [f, setF] = useState({ color: '#7b6cff', ...data });
   const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
@@ -286,7 +251,7 @@ export function NoteModal({ data = {}, onClose }) {
 }
 
 export function ModalHost({ modal, onClose }) {
-  const Comp = useMemo(() => (modal ? { event: EventModal, task: TaskModal, reminder: ReminderModal, call: CallModal, courrier: CourrierModal, contact: ContactModal, note: NoteModal, compose: ComposeModal }[modal.kind] : null), [modal]);
+  const Comp = useMemo(() => (modal ? { event: EventModal, task: TaskModal, reminder: ReminderModal, call: CallModal, courrier: CourrierModal, letter: LetterModal, contact: ContactModal, note: NoteModal, compose: ComposeModal }[modal.kind] : null), [modal]);
   if (!modal || !Comp) return null;
   return <Comp data={modal.data} onClose={onClose} />;
 }

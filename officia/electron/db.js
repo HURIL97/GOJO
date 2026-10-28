@@ -29,7 +29,7 @@ const TABLES = {
   mails: `account_id TEXT, folder TEXT, message_id TEXT, uid INTEGER, from_addr TEXT, from_name TEXT, to_addr TEXT,
           cc TEXT, bcc TEXT, subject TEXT, text TEXT, html TEXT, date TEXT, read INTEGER DEFAULT 0,
           starred INTEGER DEFAULT 0, attachments TEXT, in_reply_to TEXT, error TEXT, tries INTEGER DEFAULT 0,
-          link_type TEXT, link_id TEXT, imap_path TEXT, flags_dirty INTEGER DEFAULT 0`,
+          link_type TEXT, link_id TEXT, imap_path TEXT, flags_dirty INTEGER DEFAULT 0, ics TEXT, ics_method TEXT`,
   templates: `name TEXT, category TEXT, subject TEXT, body TEXT`,
   courrier: `number TEXT, direction TEXT, date TEXT, correspondent TEXT, object TEXT, reference TEXT, mode TEXT,
              assigned_to TEXT, status TEXT DEFAULT 'enregistre', due TEXT, notes TEXT, attachment TEXT, contact_id TEXT,

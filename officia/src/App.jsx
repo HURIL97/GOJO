@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Home as HomeIcon, CalendarDays, Users2, Mail as MailIcon, ListChecks, Contact, Inbox, PhoneCall, Settings as Cog,
   Search, Bell, Plus, Sun, Moon, LogOut, Sparkles, CalendarPlus, Handshake, BellRing, Send, FileText, Phone, StickyNote,
-  CheckCheck, Trash2, X, CornerDownLeft, UserRound,
+  CheckCheck, Trash2, X, CornerDownLeft, UserRound, Lock, BarChart3, Cloud, CloudOff, RefreshCw, DownloadCloud,
 } from 'lucide-react';
 import { call, on } from './lib/api';
 import { AppCtx } from './lib/context';
@@ -10,7 +10,8 @@ import { ago, initials } from './lib/format';
 import { ABOUT } from './lib/about';
 import { Toasts, ConfirmHost, toast, confirmBox } from './components/ui';
 import { ModalHost } from './components/modals';
-import Sessions from './pages/Setup';
+import Sessions, { PinPad, Art } from './pages/Setup';
+import Reports from './pages/Reports';
 import Home from './pages/Home';
 import Agenda from './pages/Agenda';
 import Meetings from './pages/Meetings';
@@ -30,6 +31,7 @@ const PAGES = [
   { id: 'calls', label: 'Appels', icon: PhoneCall, comp: Calls, group: 'Communication', badge: 'calls' },
   { id: 'courrier', label: 'Courrier', icon: Inbox, comp: Courrier, group: 'Communication', badge: 'courrier' },
   { id: 'contacts', label: 'Contacts', icon: Contact, comp: Contacts, group: 'Communication' },
+  { id: 'reports', label: 'Rapport d’activité', icon: BarChart3, comp: Reports, group: 'Système' },
   { id: 'settings', label: 'Paramètres', icon: Cog, comp: Settings, group: 'Système' },
 ];
 
@@ -153,6 +155,24 @@ function QuickMenu({ onClose, open }) {
   );
 }
 
+// État de la synchronisation avec le serveur de l'équipe.
+function SyncChip({ go }) {
+  const [st, setSt] = useState(null);
+  useEffect(() => {
+    call('team.state').then(setSt).catch(() => {});
+    return on('sync:status', setSt);
+  }, []);
+  if (!st || st.status === 'off') return null;
+  const ok = st.status === 'ok' || st.status === 'syncing';
+  const I = st.status === 'syncing' ? RefreshCw : ok ? Cloud : CloudOff;
+  return (
+    <button className="icon-btn" title={ok ? `Équipe synchronisée${st.lastSync ? ` (${ago(st.lastSync)})` : ''}${st.pending ? ` · ${st.pending} en attente` : ''}` : `Serveur de l’équipe injoignable : ${st.lastError || ''} — vos modifications partiront au retour de la connexion`} onClick={() => go('settings', { tab: 'team' })}>
+      <I size={18} className={st.status === 'syncing' ? 'spin' : ''} color={ok ? 'var(--good)' : 'var(--warn)'} />
+      {st.pending > 0 && <span className="count" style={{ background: 'var(--warn)' }}>{st.pending > 99 ? '99+' : st.pending}</span>}
+    </button>
+  );
+}
+
 function Clock() {
   const [now, setNow] = useState(new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 20000); return () => clearInterval(t); }, []);
@@ -165,7 +185,8 @@ function Clock() {
 }
 
 export default function App() {
-  const [phase, setPhase] = useState('loading'); // loading | sessions | ready
+  const [phase, setPhase] = useState('loading'); // loading | sessions | ready | locked
+  const [update, setUpdate] = useState(null);
   const [settings, setSettings] = useState(null);
   const [nav, setNav] = useState({ page: 'home' });
   const [theme, setTheme] = useState(document.documentElement.dataset.theme || 'dark');
@@ -182,6 +203,8 @@ export default function App() {
     (async () => {
       await reloadSettings();
       // Une seule session sans code : ouverture directe ; sinon, écran de choix des sessions.
+      const st = await call('session.state');
+      if (st.current) { await reloadSettings(); setPhase(st.locked ? 'locked' : 'ready'); return; } // rechargement de la fenêtre
       if (await call('session.auto')) { await reloadSettings(); setPhase('ready'); } else setPhase('sessions');
     })().catch((e) => toast(e.message, 'error'));
   }, [reloadSettings]);
@@ -211,6 +234,7 @@ export default function App() {
     const k = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette(true); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) { e.preventDefault(); setQuick(true); }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'l') { e.preventDefault(); window.dispatchEvent(new Event('officia-lock')); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') { e.preventDefault(); window.dispatchEvent(new Event('officia-logout')); }
     };
     window.addEventListener('keydown', k);
@@ -237,6 +261,17 @@ export default function App() {
     setPhase('ready');
   }, [reloadSettings]);
   useEffect(() => on('session:logout', () => logout(false)), [logout]);
+  // Verrouillage : inactivité, verrouillage de Windows, cadenas ou Ctrl+Maj+L.
+  useEffect(() => on('session:locked', () => { setModal(null); setPalette(false); setDrawer(false); setQuick(false); setPhase((p) => (p === 'ready' ? 'locked' : p)); }), []);
+  const lock = useCallback(async () => {
+    if (!(await call('session.lock'))) toast('Définissez d’abord un code de session (Paramètres › Sécurité)', 'error');
+  }, []);
+  useEffect(() => {
+    const h = () => phase === 'ready' && lock();
+    window.addEventListener('officia-lock', h);
+    return () => window.removeEventListener('officia-lock', h);
+  }, [lock, phase]);
+  useEffect(() => on('update:available', (u) => setUpdate(u)), []);
   useEffect(() => {
     const h = () => phase === 'ready' && logout();
     window.addEventListener('officia-logout', h);
@@ -247,6 +282,19 @@ export default function App() {
 
   if (phase === 'loading' || !settings) return null;
   if (phase === 'sessions') return <AppCtx.Provider value={ctx}><Sessions onOpened={opened} /><Toasts /><ConfirmHost /></AppCtx.Provider>;
+  if (phase === 'locked') {
+    return (
+      <AppCtx.Provider value={ctx}>
+        <div className="login">
+          <Art />
+          <div className="login-panel">
+            <PinPad unlock profile={{ name: settings.user_name || 'Session' }} hint="Session verrouillée — saisissez votre code" backLabel="Changer de session" onBack={() => logout(false)} onOpened={() => setPhase('ready')} />
+          </div>
+        </div>
+        <Toasts />
+      </AppCtx.Provider>
+    );
+  }
 
   const current = PAGES.find((p) => p.id === nav.page) || PAGES[0];
   const Comp = current.comp;
@@ -280,6 +328,7 @@ export default function App() {
                 <div className="muted small" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{settings.user_title}</div>
               </div>
               <button className="btn ghost sm icon right" title="Thème clair / sombre" onClick={toggleTheme}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</button>
+              {settings.has_lock === '1' && <button className="btn ghost sm icon" title="Verrouiller (Ctrl+Maj+L)" onClick={lock}><Lock size={16} /></button>}
               <button className="btn ghost sm icon" title="Se déconnecter (Ctrl+L)" onClick={() => logout()}><LogOut size={16} /></button>
             </div>
             <div className="muted" style={{ fontSize: 10.5, textAlign: 'center', lineHeight: 1.4 }}>{ABOUT.name} v{ABOUT.version}<br />par {ABOUT.author}</div>
@@ -293,6 +342,8 @@ export default function App() {
             </div>
             <div className="spacer" />
             <button className="search-btn" onClick={() => setPalette(true)}><Search size={16} />Rechercher partout…<kbd>Ctrl K</kbd></button>
+            {update && <button className="btn sm primary" title={`Nouvelle version ${update.latest}`} onClick={() => { setUpdate(null); go('settings', { tab: 'about' }); }}><DownloadCloud size={15} />Mise à jour {update.latest}</button>}
+            <SyncChip go={go} />
             <button className="icon-btn" title="Notifications" onClick={() => setDrawer(true)}>
               <Bell size={18} />{badges.notif > 0 && <span className="count">{badges.notif > 99 ? '99+' : badges.notif}</span>}
             </button>

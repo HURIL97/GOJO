@@ -109,3 +109,21 @@ test('messagerie : « Se connecter avec Microsoft » (jeton OAuth, renouvellemen
     assert.equal(JSON.parse(dec(db.byId('mail_accounts', acc.id).oauth_enc)).refresh_token, 'refresh-2');
   } finally { imap.close(); smtp.close(); tokenSrv.close(); }
 });
+
+test('messagerie : invitation calendrier (.ics) jointe, conservée si le message attend dans la boîte d’envoi', async () => {
+  const received = [];
+  const smtp = new SMTPServer({ disabledCommands: ['STARTTLS'], authOptional: true,
+    onData(stream, s, cb) { let d = ''; stream.on('data', (c) => { d += c; }); stream.on('end', () => { received.push(d); cb(); }); } });
+  await listen(smtp, '127.0.0.1');
+  const db = new DB(':memory:');
+  const M = createMail(db, { encrypt: enc, decrypt: dec, filesDir: fs.mkdtempSync(path.join(os.tmpdir(), 'officia-')) });
+  const ics = require('../electron/ics').calendar([{ id: 'ev1', title: 'Rendez-vous', start: '2026-11-02T10:00:00', end: '2026-11-02T11:00:00' }], { method: 'REQUEST' });
+  const acc = M.saveAccount({ email: 'secretariat@exemple.ci', smtp_host: '127.0.0.1', smtp_port: 1, smtp_secure: 0 });
+  try {
+    assert.equal((await M.send({ account_id: acc.id, to_addr: 'visiteur@exemple.ci', subject: 'Invitation', text: 'Bonjour', ics })).status, 'queued');
+    db.save('mail_accounts', { id: acc.id, smtp_port: smtp.server.address().port });
+    assert.equal((await M.processOutbox()).sent, 1);
+    assert.match(received[0], /Content-Type: text\/calendar; charset=utf-8; method=REQUEST/);
+    assert.match(received[0], /invitation\.ics/);
+  } finally { smtp.close(); }
+});

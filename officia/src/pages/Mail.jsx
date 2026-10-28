@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Inbox, Star, Send, FileEdit, Clock, Archive, Trash2, RefreshCw, Reply, Forward, PenSquare, Paperclip, ListChecks,
-  CalendarPlus, Search, MailOpen, AlertTriangle, Settings2, ShieldCheck,
+  CalendarPlus, Search, MailOpen, AlertTriangle, Settings2, ShieldCheck, ShieldAlert, Zap,
 } from 'lucide-react';
 import { call, on } from '../lib/api';
 import { useData, act } from '../lib/hooks';
@@ -11,12 +11,12 @@ import { Empty, toast } from '../components/ui';
 
 const FOLDERS = [
   ['inbox', 'Boîte de réception', Inbox], ['starred', 'Favoris', Star], ['sent', 'Envoyés', Send], ['drafts', 'Brouillons', FileEdit],
-  ['outbox', 'Boîte d’envoi', Clock], ['archive', 'Archives', Archive], ['trash', 'Corbeille', Trash2],
+  ['outbox', 'Boîte d’envoi', Clock], ['archive', 'Archives', Archive], ['junk', 'Indésirables', ShieldAlert], ['trash', 'Corbeille', Trash2],
 ];
 const quote = (m) => `\n\n\nLe ${fmtLong(m.date)} à ${fmtTime(m.date)}, ${m.from_name || m.from_addr} a écrit :\n${String(m.text || '').split('\n').map((l) => `> ${l}`).join('\n')}`;
 
 export default function Mail() {
-  const { open, go, nav } = useApp();
+  const { open, go, nav, settings } = useApp();
   const [folder, setFolder] = useState('inbox');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(nav.id || null);
@@ -25,6 +25,7 @@ export default function Mail() {
   const [list, reload] = useData(folder === 'starred' ? 'mail.starred' : 'mail.list', folder === 'starred' ? [] : [{ folder, q }], [folder, q]);
   const [counts, reloadCounts] = useData('mail.counts');
   const [accounts] = useData('mail.accounts');
+  const [quick] = useData('db.list', ['templates', { category: 'Réponse rapide' }, 'name']);
   useEffect(() => on('mail:synced', () => { reload(); reloadCounts(); setSyncing(false); }), [reload, reloadCounts]);
   useEffect(() => {
     if (!sel) return setMsg(null);
@@ -37,6 +38,12 @@ export default function Mail() {
   const star = async () => { const r = await act(() => call('mail.update', msg.id, { starred: msg.starred ? 0 : 1 })); if (r) { setMsg(r); reload(); } };
   const remove = async () => { if (msg.folder === 'trash') { await call('db.remove', 'mails', msg.id); setSel(null); reload(); reloadCounts(); } else move('trash', 'Message placé dans la corbeille'); };
   const reply = (all) => open('mail', { to_addr: msg.from_addr, cc: all ? msg.cc : '', subject: /^re\s*:/i.test(msg.subject || '') ? msg.subject : `Re : ${msg.subject || ''}`, text: quote(msg), in_reply_to: msg.message_id, account_id: msg.account_id !== 'demo' ? msg.account_id : undefined, title: 'Répondre' });
+  // Réponse rapide : le modèle choisi est complété (nom, signature) et placé au-dessus du message cité.
+  const quickReply = async (tpl) => {
+    const acc = (accounts || []).find((a) => a.id === msg.account_id) || (accounts || [])[0];
+    const r = await call('templates.fill', tpl, { nom: msg.from_name || '', signature: acc?.signature || [settings.user_name, settings.user_title, settings.organisation].filter(Boolean).join('\n'), organisation: settings.organisation, objet: msg.subject || '' });
+    open('mail', { to_addr: msg.from_addr, subject: /^re\s*:/i.test(msg.subject || '') ? msg.subject : `Re : ${msg.subject || ''}`, text: `${r.body}${quote(msg)}`, in_reply_to: msg.message_id, account_id: msg.account_id !== 'demo' ? msg.account_id : undefined, title: `Réponse rapide — ${tpl.name}`, signed: true });
+  };
   const forward = () => open('mail', { subject: `Tr : ${msg.subject || ''}`, text: `\n\n---------- Message transféré ----------\nDe : ${msg.from_name || ''} <${msg.from_addr}>\nDate : ${fmtDateTime(msg.date)}\nObjet : ${msg.subject}\n\n${msg.text || ''}`, attachments: msg.attachments || [], title: 'Transférer' });
   const toTask = () => open('task', { title: msg.subject || 'Suite à donner au message', description: `Message de ${msg.from_name || msg.from_addr} du ${fmtDateTime(msg.date)} :\n\n${(msg.text || '').slice(0, 800)}` });
   const toEvent = () => open('event', { title: msg.subject || '', type: 'rdv', description: `Suite au message de ${msg.from_name || msg.from_addr}` });
@@ -107,10 +114,17 @@ export default function Mail() {
                 <button className="btn sm" onClick={toEvent}><CalendarPlus size={14} />Planifier</button>
                 <div className="right row" style={{ gap: 6 }}>
                   {msg.folder !== 'archive' && msg.folder !== 'outbox' && <button className="btn sm ghost" title="Archiver" onClick={() => move('archive', 'Message archivé')}><Archive size={15} /></button>}
-                  {msg.folder === 'trash' || msg.folder === 'archive' ? <button className="btn sm ghost" title="Remettre dans la boîte de réception" onClick={() => move('inbox', 'Message restauré')}><Inbox size={15} /></button> : null}
+                  {msg.folder !== 'junk' && msg.folder === 'inbox' && <button className="btn sm ghost" title="Indésirable" onClick={() => move('junk', 'Message classé comme indésirable')}><ShieldAlert size={15} /></button>}
+                  {msg.folder === 'trash' || msg.folder === 'archive' || msg.folder === 'junk' ? <button className="btn sm ghost" title="Remettre dans la boîte de réception" onClick={() => move('inbox', 'Message restauré')}><Inbox size={15} /></button> : null}
                   <button className="btn sm ghost" title="Supprimer" onClick={remove}><Trash2 size={15} /></button>
                 </div>
               </div>
+              {msg.folder === 'inbox' && (quick || []).length > 0 && (
+                <div className="row wrap mt" style={{ gap: 6 }}>
+                  <span className="muted small row" style={{ gap: 4 }}><Zap size={13} color="var(--accent)" />Réponse rapide :</span>
+                  {quick.map((t) => <button key={t.id} className="chip" style={{ border: 0, cursor: 'pointer', padding: '4px 10px' }} onClick={() => quickReply(t)}>{t.name}</button>)}
+                </div>
+              )}
               {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
                 <div className="row wrap mt" style={{ gap: 6 }}>
                   {msg.attachments.map((a, i) => <span key={i} className="att" onClick={() => call('file.open', a.path).catch((e) => toast(e.message, 'error'))}><Paperclip size={13} />{a.filename}</span>)}
