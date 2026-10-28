@@ -66,7 +66,7 @@ say "Compte système et configuration"
 id officia >/dev/null 2>&1 || useradd --system --home-dir "$APP" --shell /usr/sbin/nologin officia
 if [ ! -f "$APP/.env" ]; then
   TOKEN=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | cut -c1-48)
-  printf 'SYNC_TOKEN=%s\nCALENDAR_NAME=Agenda de la Direction\n' "$TOKEN" > "$APP/.env"
+  printf 'SYNC_TOKEN=%s\nCALENDAR_NAME="Agenda de la Direction"\n' "$TOKEN" > "$APP/.env"
 fi
 chmod 600 "$APP/.env"
 chown -R officia:officia "$APP/data" "$APP/.env"
