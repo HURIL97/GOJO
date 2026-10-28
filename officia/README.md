@@ -7,6 +7,8 @@ Tout fonctionne **sans Internet** (base locale sur le poste) ; la messagerie env
 
 📘 **Manuel d’utilisation illustré (PDF, 45 pages)** : [docs/OfficiaTech-Manuel.pdf](docs/OfficiaTech-Manuel.pdf)
 
+🖥️ **Guide du serveur d’équipe et de la connexion (VPS, postes, espace mobile, agenda sur téléphone — PDF, 18 pages)** : [docs/OfficiaTech-Guide-Serveur.pdf](docs/OfficiaTech-Guide-Serveur.pdf)
+
 ![Ma journée](docs/accueil.png)
 
 | Agenda | Procès-verbal | Messagerie |
@@ -94,6 +96,11 @@ Saisissez votre nom, votre fonction, l’organisation et la personne assistée. 
 Ajoutez ensuite votre adresse e-mail dans **Paramètres › Messagerie** (bouton « Tester la connexion »). Gmail et Yahoo : **mot de passe d’application**. Outlook / Hotmail / Microsoft 365 : bouton **« Se connecter avec Microsoft »**, après avoir enregistré une fois l’application sur entra.microsoft.com (étapes affichées dans l’application et dans le manuel).
 
 ### Serveur d’équipe (VPS)
+Sur un VPS déjà équipé de Caddy et systemd, une seule commande depuis Windows (détails dans le guide du serveur) :
+```powershell
+ssh -i C:\chemin\vers\cle root@IP_DU_VPS "curl -fsSL https://raw.githubusercontent.com/HURIL97/GOJO/main/officia/server/install-vps.sh | bash"
+```
+Variante Docker (VPS sans Caddy) :
 ```bash
 cd officia/server
 cp .env.example .env          # SYNC_TOKEN=… (openssl rand -hex 24)
