@@ -11,6 +11,7 @@ const { DatabaseSync } = require('node:sqlite');
 const ics = require('../electron/ics');
 
 const PORT = Number(process.env.PORT || 8790);
+const HOST = process.env.HOST || '0.0.0.0'; // 127.0.0.1 derrière un proxy (Caddy) sur la même machine
 const TOKEN = process.env.SYNC_TOKEN || '';
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const MAX_BODY = 20 * 1024 * 1024;
@@ -286,8 +287,8 @@ function readBody(req) {
 
 if (require.main === module) {
   const server = createServer();
-  server.listen(PORT, () => {
-    console.log(`OfficiaTech — serveur d'équipe en écoute sur le port ${PORT} (données : ${DATA_DIR})`);
+  server.listen(PORT, HOST, () => {
+    console.log(`OfficiaTech — serveur d'équipe en écoute sur ${HOST}:${PORT} (données : ${DATA_DIR})`);
     console.log(`Flux d'agenda : https://<votre-domaine>/ical/${server.feedKey}.ics`);
   });
 }
