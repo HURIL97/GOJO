@@ -1,6 +1,6 @@
 # OfficiaTech — l’assistant administratif tout-en-un
 
-**Version 1.10** — développé par **M. TETCHI KOREY JOEL**, Comptable · +225 07 19 37 80 57 / +225 01 60 29 61 49 · heliontech97@gmail.com
+**Version 1.12** — développé par **M. TETCHI KOREY JOEL**, Comptable · +225 07 19 37 80 57 / +225 01 60 29 61 49 · heliontech97@gmail.com
 
 Application Windows pour **assistante de direction et secrétariat** : agenda, rendez-vous, réunions et procès-verbaux, messagerie, courrier, appels, tâches, rappels et notifications, réunis dans une interface simple, élégante et professionnelle.
 Tout fonctionne **sans Internet** (base locale sur le poste) ; la messagerie envoie et relève vos e-mails dès que la connexion est disponible.
@@ -8,6 +8,8 @@ Tout fonctionne **sans Internet** (base locale sur le poste) ; la messagerie env
 📘 **Manuel d’utilisation illustré (PDF, 45 pages)** : [docs/OfficiaTech-Manuel.pdf](docs/OfficiaTech-Manuel.pdf)
 
 🖥️ **Guide du serveur d’équipe et de la connexion (VPS, postes, espace mobile, agenda sur téléphone — PDF, 18 pages)** : [docs/OfficiaTech-Guide-Serveur.pdf](docs/OfficiaTech-Guide-Serveur.pdf)
+
+🛠️ **Guide du propriétaire et du développeur (publier une mise à jour, nouvel ordinateur, diagnostic messagerie, architecture, règles d’or — PDF, 18 pages)** : [docs/OfficiaTech-Guide-Proprietaire-Developpeur.pdf](docs/OfficiaTech-Guide-Proprietaire-Developpeur.pdf)
 
 ![Ma journée](docs/accueil.png)
 
