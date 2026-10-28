@@ -1,9 +1,6 @@
-OfficiaTech 1.10 — nouveautés
+OfficiaTech 1.11 — correctif messagerie
 
-• Messagerie : « Se connecter avec Microsoft » (Outlook, Hotmail, Microsoft 365), relève des dossiers Envoyés, Archives et Indésirables, copie des envois dans « Envoyés » du serveur, lu/non lu et favoris synchronisés avec le téléphone, réponses rapides.
-• Agenda : invitations calendrier (.ics) jointes aux confirmations et convocations, import/export .ics, rendez-vous privés, rappel automatique des visiteurs la veille (e-mail, ou WhatsApp/SMS en un clic).
-• Réunions : feuille de présence à faire signer, suivi des actions non terminées, planification de la séance suivante, remarques et validation du PV par la Direction, astuce de dictée (Windows + H).
-• Courrier : plusieurs pièces par courrier, numérisation directe depuis le scanner, circuit de traitement (transmission, relances, réponse), lettres sur papier à en-tête (PDF et Word).
-• Sécurité : sauvegarde quotidienne vers une clé USB ou Google Drive, restauration en un clic, verrouillage automatique après inactivité, mises à jour depuis l’application.
-• Équipe : serveur à installer sur votre VPS pour partager agenda, réunions, tâches et courrier entre plusieurs postes ; espace mobile de la Direction ; agenda consultable sur le téléphone.
-• Rapport d’activité mensuel exportable en PDF et Excel.
+• Envoi des e-mails sur les postes équipés d’un antivirus qui analyse les e-mails (Avast, AVG, Kaspersky, ESET…) : OfficiaTech reconnaît désormais les certificats installés dans Windows. Cela corrige le cas « Réception : connexion réussie / Envoi : erreur ».
+• « Tester la connexion » donne des messages précis (certificat intercepté, port bloqué, mauvais réglage SSL/STARTTLS, identifiants refusés) et, si l’envoi est bloqué sur un port, essaie automatiquement les autres (587, 465, 2525) et propose le réglage qui fonctionne en un clic.
+
+Rappel des nouveautés de la 1.10 : connexion Microsoft, dossiers Envoyés synchronisés, réponses rapides, invitations calendrier, rappel des visiteurs, feuille de présence, suivi des actions, numérisation et circuit du courrier, lettres à en-tête, verrouillage automatique, sauvegarde externe, mises à jour intégrées, travail en équipe et espace mobile, rapport d’activité.

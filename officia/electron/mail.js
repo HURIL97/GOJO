@@ -4,6 +4,7 @@ const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 const MailComposer = require('nodemailer/lib/mail-composer');
 const crypto = require('node:crypto');
+const tls = require('node:tls');
 const fs = require('node:fs');
 const path = require('node:path');
 const { stamp } = require('./db');
@@ -22,6 +23,20 @@ const PRESETS = {
   'yahoo.fr': { smtp_host: 'smtp.mail.yahoo.com', smtp_port: 465, smtp_secure: 1, imap_host: 'imap.mail.yahoo.com', imap_port: 993, imap_secure: 1 },
   'orange.fr': { smtp_host: 'smtp.orange.fr', smtp_port: 465, smtp_secure: 1, imap_host: 'imap.orange.fr', imap_port: 993, imap_secure: 1 },
 };
+
+// Autorités de certification : celles de Node.js + celles installées dans Windows.
+// Indispensable quand un antivirus (Avast, AVG, Kaspersky, ESET…) analyse les e-mails : il présente son propre
+// certificat, reconnu par Windows mais pas par la liste intégrée de Node.js (réception OK, envoi refusé…).
+let CA;
+const trustedCAs = () => {
+  if (CA !== undefined) return CA;
+  try {
+    const sys = typeof tls.getCACertificates === 'function' ? tls.getCACertificates('system') : [];
+    CA = sys.length ? [...new Set([...tls.getCACertificates('default'), ...sys])] : null;
+  } catch { CA = null; }
+  return CA;
+};
+const tlsOptions = () => (trustedCAs() ? { minVersion: 'TLSv1.2', ca: trustedCAs() } : { minVersion: 'TLSv1.2' });
 
 // Hébergeurs qui rangent eux-mêmes une copie des messages envoyés par SMTP dans « Envoyés ».
 const AUTO_SENT = /(^|[.-])(gmail|googlemail|office365|outlook|hotmail|live)\.com$/i;
@@ -75,16 +90,16 @@ function createMail(db, { encrypt, decrypt, filesDir, oauth = () => ({}) }) {
   };
   const isOauth = (a) => a.auth_type === 'oauth_ms';
 
-  const transport = async (a) => nodemailer.createTransport({
-    host: a.smtp_host, port: Number(a.smtp_port) || 587, secure: !!Number(a.smtp_secure),
+  const transport = async (a, over = {}) => nodemailer.createTransport({
+    host: a.smtp_host, port: Number(over.port ?? a.smtp_port) || 587, secure: !!Number(over.secure ?? a.smtp_secure),
     auth: isOauth(a) ? { type: 'OAuth2', user: a.username, accessToken: await accessToken(a) } : a.username && a.password ? { user: a.username, pass: a.password } : undefined,
-    connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 30000,
-    tls: { minVersion: 'TLSv1.2' },
+    connectionTimeout: over.port ? 8000 : 15000, greetingTimeout: 15000, socketTimeout: 30000,
+    tls: tlsOptions(),
   });
   const imap = async (a) => new ImapFlow({
     host: a.imap_host, port: Number(a.imap_port) || 993, secure: !!Number(a.imap_secure),
     auth: isOauth(a) ? { user: a.username, accessToken: await accessToken(a) } : { user: a.username, pass: a.password },
-    logger: false, socketTimeout: 30000,
+    logger: false, socketTimeout: 30000, tls: tlsOptions(),
   });
 
   // Messages d'erreur compréhensibles (identifiants refusés, serveur introuvable…).
@@ -95,9 +110,16 @@ function createMail(db, { encrypt, decrypt, filesDir, oauth = () => ({}) }) {
         ? 'Connexion refusée par Microsoft : utilisez « Se connecter avec Microsoft »'
         : 'Identifiant ou mot de passe refusé par le serveur (Gmail/Yahoo : utilisez un mot de passe d’application)';
     }
-    if (e.code === 'ENOTFOUND') return 'Serveur introuvable : vérifiez l’adresse du serveur';
-    if (e.code === 'ECONNREFUSED' || e.code === 'ETIMEDOUT' || e.code === 'ESOCKET') return `Connexion impossible au serveur (port ou pare-feu) : ${e.message}`;
-    return e.message;
+    const msg = String(e.message || '');
+    if (e.code === 'ENOTFOUND' || e.code === 'EAI_AGAIN') return 'Serveur introuvable : vérifiez l’adresse du serveur et la connexion Internet';
+    if (/SELF_SIGNED|UNABLE_TO_VERIFY|UNABLE_TO_GET_ISSUER|CERT_|certificate/i.test(`${e.code || ''} ${msg}`)) {
+      return 'Certificat de sécurité non reconnu : un antivirus (Avast, AVG, Kaspersky, ESET…) ou un pare-feu d’entreprise intercepte probablement les e-mails. Désactivez son « analyse des e-mails sortants / SMTP » ou ajoutez OfficiaTech en exception.';
+    }
+    if (/wrong version number|ssl3_get_record|packet length too long|unknown protocol/i.test(msg)) return 'Mauvais réglage de sécurité pour ce port : 465 = SSL/TLS, 587 = STARTTLS';
+    if (e.code === 'ETIMEDOUT' || /timeout|Greeting never received/i.test(msg)) return `Le serveur ne répond pas sur le port ${e.port || 'choisi'} : port bloqué par le réseau, le pare-feu ou l’antivirus de ce poste`;
+    if (e.code === 'ECONNREFUSED' || /ECONNREFUSED/.test(msg)) return `Connexion refusée sur le port ${e.port || 'choisi'} : vérifiez le port, ou un pare-feu / antivirus bloque l’envoi`;
+    if (e.code === 'ECONNRESET' || e.code === 'ESOCKET') return `Connexion interrompue (pare-feu ou antivirus ?) : ${msg}`;
+    return msg;
   };
   const explainFor = (a) => (e) => { if (/outlook|office365|hotmail|live/i.test(`${a.smtp_host} ${a.imap_host}`) && !isOauth(a)) e.microsoft = true; return explain(e); };
 
@@ -105,7 +127,19 @@ function createMail(db, { encrypt, decrypt, filesDir, oauth = () => ({}) }) {
     const a = account(id);
     const ex = explainFor(a);
     const res = { smtp: null, imap: null };
-    try { await (await transport(a)).verify(); res.smtp = 'ok'; } catch (e) { res.smtp = ex(e); }
+    try { await (await transport(a)).verify(); res.smtp = 'ok'; } catch (e) {
+      e.port = e.port || a.smtp_port;
+      res.smtp = ex(e);
+      // Envoi impossible sur ce port : on essaie l'autre réglage courant (465 SSL/TLS ↔ 587 STARTTLS).
+      const authFail = e.authenticationFailed || e.code === 'EAUTH' || e.responseCode === 535;
+      if (!authFail && e.code !== 'ENOTFOUND' && !isOauth(a)) {
+        const cur = `${Number(a.smtp_port)}/${Number(a.smtp_secure) ? 1 : 0}`;
+        for (const alt of [{ port: 587, secure: 0 }, { port: 465, secure: 1 }, { port: 2525, secure: 0 }]) {
+          if (`${alt.port}/${alt.secure}` === cur) continue;
+          try { await (await transport(a, alt)).verify(); res.smtp_suggest = alt; break; } catch { /* essai suivant */ }
+        }
+      }
+    }
     if (a.imap_host) {
       try { const c = await imap(a); await c.connect(); res.imap = 'ok'; await c.logout(); } catch (e) { res.imap = ex(e); }
     }

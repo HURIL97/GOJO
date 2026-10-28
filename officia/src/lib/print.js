@@ -8,7 +8,7 @@ const para = (s) => esc(s).replace(/\n/g, '<br>');
 const cssText = (s) => String(s || '').replace(/\\/g, '').replace(/"/g, '\'').replace(/[\r\n]+/g, ' ');
 const CSS = (s = {}) => `
   @page { size: A4; margin: 18mm 18mm 20mm;
-    @bottom-left { content: "${cssText(s.org_footer) || 'Document établi avec OfficiaTech v1.10'}"; font: 7.5pt 'Segoe UI', Arial, sans-serif; color: #9ca3af; }
+    @bottom-left { content: "${cssText(s.org_footer) || 'Document établi avec OfficiaTech v1.11'}"; font: 7.5pt 'Segoe UI', Arial, sans-serif; color: #9ca3af; }
     @bottom-right { content: "Page " counter(page) " / " counter(pages); font: 7.5pt 'Segoe UI', Arial, sans-serif; color: #6b7280; } }
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #111827; font-size: 11pt; line-height: 1.5; margin: 0; }
   .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #5a48e6; padding-bottom: 12px; margin-bottom: 18px; }

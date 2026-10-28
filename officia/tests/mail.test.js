@@ -127,3 +127,17 @@ test('messagerie : invitation calendrier (.ics) jointe, conservée si le message
     assert.match(received[0], /invitation\.ics/);
   } finally { smtp.close(); }
 });
+
+test('messagerie : envoi bloqué sur ce poste → message précis et autre port proposé automatiquement', async () => {
+  const smtp = new SMTPServer({ disabledCommands: ['STARTTLS'], authOptional: true, onData(stream, s, cb) { stream.resume(); stream.on('end', () => cb()); } });
+  smtp.on('error', () => {});
+  await new Promise((r) => smtp.listen(2525, '127.0.0.1', r));
+  const db = new DB(':memory:');
+  const M = createMail(db, { encrypt: enc, decrypt: dec, filesDir: fs.mkdtempSync(path.join(os.tmpdir(), 'officia-')) });
+  const acc = M.saveAccount({ email: 'secretariat@exemple.ci', smtp_host: '127.0.0.1', smtp_port: 1, smtp_secure: 1 });
+  try {
+    const r = await M.testAccount(acc.id);
+    assert.match(r.smtp, /Connexion refusée sur le port 1/);
+    assert.deepEqual(r.smtp_suggest, { port: 2525, secure: 0 });
+  } finally { smtp.close(); }
+});

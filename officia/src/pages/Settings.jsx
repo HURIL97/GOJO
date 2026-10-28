@@ -164,7 +164,14 @@ function AccountModal({ data, onClose }) {
         </div>
         <Field label="Copie des messages envoyés dans « Envoyés » du serveur" full><Select value={f.save_sent == null || f.save_sent === '' ? '' : String(f.save_sent)} onChange={(v) => set('save_sent')(v === '' ? null : Number(v))} placeholder="Automatique (recommandé)" options={[['1', 'Oui : visibles aussi sur le téléphone et le webmail'], ['0', 'Non']]} /></Field>
         <Field label="Signature" full><textarea className="input" value={f.signature || ''} onChange={(e) => set('signature')(e.target.value)} placeholder={'Awa Kouassi\nAssistante de Direction\nTél. : …'} /></Field>
-        {test && test !== '…' && <div className="full card" style={{ boxShadow: 'none' }}><div className="list-row"><b style={{ width: 120 }}>Envoi</b>{ok(test.smtp)}</div><div className="list-row"><b style={{ width: 120 }}>Réception</b>{ok(test.imap)}</div></div>}
+        {test && test !== '…' && <div className="full card" style={{ boxShadow: 'none' }}><div className="list-row"><b style={{ width: 120 }}>Envoi</b>{ok(test.smtp)}</div><div className="list-row"><b style={{ width: 120 }}>Réception</b>{ok(test.imap)}</div>
+          {test.smtp_suggest && (
+            <div className="row between mt" style={{ background: 'var(--good-soft)', borderRadius: 10, padding: '10px 12px', gap: 10 }}>
+              <span className="small">Sur ce poste, l’envoi fonctionne avec le port <b>{test.smtp_suggest.port}</b> ({test.smtp_suggest.secure ? 'SSL/TLS' : 'STARTTLS'}).</span>
+              <button className="btn sm primary" onClick={async () => { setF((x) => ({ ...x, smtp_port: test.smtp_suggest.port, smtp_secure: test.smtp_suggest.secure })); const r = await act(() => call('mail.saveAccount', { ...f, smtp_port: test.smtp_suggest.port, smtp_secure: test.smtp_suggest.secure }), 'Réglage d’envoi corrigé'); if (r) { setTest('…'); setTest(await act(() => call('mail.test', r.id)) || null); } }}>Utiliser ce réglage</button>
+            </div>
+          )}
+        </div>}
         {test === '…' && <div className="full muted">Test en cours…</div>}
         <div className="full muted small"><ShieldCheck size={13} /> Le mot de passe est chiffré par Windows sur ce poste. Gmail et Yahoo : utilisez un « mot de passe d’application ». OfficiaTech relève la boîte de réception, les Envoyés, les Archives et les Indésirables ; lu/non lu et favoris sont synchronisés avec le téléphone.</div>
       </div>

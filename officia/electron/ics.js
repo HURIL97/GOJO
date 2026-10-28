@@ -46,7 +46,7 @@ function vevent(ev, { organizer, attendees = [], method, privateAsBusy } = {}) {
 
 // Calendrier complet. method = 'REQUEST' pour une invitation, 'CANCEL' pour une annulation, rien pour un export.
 function calendar(events, opts = {}) {
-  const l = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//OfficiaTech//Agenda 1.10//FR', 'CALSCALE:GREGORIAN'];
+  const l = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//OfficiaTech//Agenda 1.11//FR', 'CALSCALE:GREGORIAN'];
   if (opts.method) l.push(`METHOD:${opts.method}`);
   if (opts.name) l.push(`X-WR-CALNAME:${text(opts.name)}`);
   for (const ev of events) l.push(...vevent(ev, opts));
