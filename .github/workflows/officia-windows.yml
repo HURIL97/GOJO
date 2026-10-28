@@ -2,6 +2,11 @@ name: OfficiaTech — installateur Windows
 
 on:
   workflow_dispatch:
+    inputs:
+      publier:
+        description: 'Publier la version (page Releases + mise à jour proposée dans OfficiaTech)'
+        type: boolean
+        default: false
   push:
     tags: ['officia-v*']
     branches: [main]
@@ -48,12 +53,19 @@ jobs:
             officia/release/*.exe
             officia/release/*.zip
           if-no-files-found: error
-      # Une étiquette « officia-vX.Y.Z » publie la version : OfficiaTech la propose alors en mise à jour.
+      # Une étiquette « officia-vX.Y.Z », ou « Run workflow » avec « publier », publie la version :
+      # OfficiaTech la propose alors en mise à jour.
+      - name: Numéro de version
+        id: v
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Publication de la version
-        if: startsWith(github.ref, 'refs/tags/officia-v')
+        if: startsWith(github.ref, 'refs/tags/officia-v') || inputs.publier
         uses: softprops/action-gh-release@v2
         with:
-          name: OfficiaTech ${{ github.ref_name }}
+          tag_name: officia-v${{ steps.v.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: OfficiaTech ${{ steps.v.outputs.version }}
           body_path: officia/CHANGELOG.md
           files: |
             officia/release/*.exe
