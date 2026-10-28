@@ -8,6 +8,7 @@ const { execFile } = require('node:child_process');
 const ics = require('./ics');
 const { loginMicrosoft } = require('./oauth');
 const { SyncEngine } = require('./sync');
+const { createUpdater } = require('./updater');
 const { DB, stamp } = require('./db');
 const { createServices, today, DEFAULT_SETTINGS } = require('./services');
 const { createMail } = require('./mail');
@@ -575,8 +576,11 @@ function registerIpc() {
   handle('report.month', (m) => S.monthlyReport(m));
 
   // Mises à jour (publications GitHub)
-  handle('update.check', () => checkUpdate(), { open: true });
-  handle('update.install', (u) => installUpdate(u), { open: true });
+  handle('update.state', () => updater.state(), { open: true });
+  handle('update.check', async () => { const st = await updater.check(); if (st.status === 'available' && updater.config().auto) updater.download().catch(() => {}); return updater.state(); }, { open: true });
+  handle('update.download', () => updater.download(), { open: true });
+  handle('update.install', () => installNow(), { open: true });
+  handle('update.setAuto', (auto) => updater.setConfig({ auto: !!auto }), { open: true });
 
   // Fichiers, impression, export
   // Appel (tel:), SMS (sms:) et WhatsApp (wa.me) : ouverts par Windows, « Lien avec Windows » ou WhatsApp.
@@ -680,43 +684,26 @@ function scanDocument() {
   });
 }
 
-// ---- Mises à jour : publications « officia-vX.Y.Z » du dépôt GitHub ----
-const newer = (a, b) => { const x = a.split('.').map(Number); const y = b.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
-async function checkUpdate() {
-  // OFFICIA_UPDATE_FEED : source de remplacement (tests, miroir interne).
-  const res = await fetch(process.env.OFFICIA_UPDATE_FEED || `https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=30`, { headers: { 'User-Agent': 'OfficiaTech', Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(res.status === 403 || res.status === 429 ? 'Vérification momentanément impossible (limite GitHub atteinte), réessayez plus tard' : `Vérification impossible (GitHub ${res.status})`);
-  const list = await res.json();
-  const current = app.getVersion();
-  let best = null;
-  for (const r of list) {
-    const m = /^officia-v(\d+\.\d+\.\d+)$/.exec(r.tag_name || '');
-    if (!m || r.draft || r.prerelease) continue;
-    const exe = (r.assets || []).find((a) => /Setup.*\.exe$/i.test(a.name));
-    if (exe && (!best || newer(m[1], best.version))) best = { version: m[1], notes: r.body || '', page: r.html_url, url: exe.browser_download_url, size: exe.size, name: exe.name, date: r.published_at };
-  }
-  return { current, latest: best ? best.version : current, available: !!best && newer(best.version, current), ...(best || {}) };
+// ---- Mises à jour automatiques (publications « officia-vX.Y.Z » du dépôt GitHub) ----
+let updater;
+function initUpdater() {
+  updater = createUpdater({
+    currentVersion: app.getVersion(), repo: UPDATE_REPO, dir: path.join(app.getPath('userData'), 'mises-a-jour'),
+    feedUrl: process.env.OFFICIA_UPDATE_FEED, allowAnyUrl: !!process.env.OFFICIA_UPDATE_FEED,
+    spawn: (file, args, opts) => require('node:child_process').spawn(file, args, opts),
+    onState: (st) => send('update:state', { ...st, release: undefined, auto: updater ? updater.config().auto : true }),
+  });
+  // Au démarrage puis toutes les 4 heures : recherche et téléchargement en arrière-plan.
+  const run = () => updater.cycle().catch(() => {});
+  setTimeout(run, 15000);
+  setInterval(run, 4 * 3600000);
 }
-async function installUpdate(u) {
-  if (!u || !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/releases\/download\//.test(u.url || '')) throw new Error('Lien de mise à jour invalide');
-  const res = await fetch(u.url, { headers: { 'User-Agent': 'OfficiaTech' } });
-  if (!res.ok || !res.body) throw new Error(`Téléchargement impossible (${res.status})`);
-  const file = path.join(os.tmpdir(), safeName(u.name || 'OfficiaTech-Setup.exe'));
-  const total = Number(res.headers.get('content-length')) || u.size || 0;
-  const out = fs.createWriteStream(file);
-  let got = 0;
-  for await (const chunk of res.body) {
-    got += chunk.length;
-    if (!out.write(chunk)) await new Promise((r) => out.once('drain', r));
-    send('update:progress', total ? Math.round((got / total) * 100) : null);
-  }
-  await new Promise((r, j) => out.end((e) => (e ? j(e) : r())));
-  if (total && got !== total) throw new Error('Téléchargement incomplet, réessayez');
-  // L'installateur remplace l'application ; les données (dossier utilisateur) sont conservées.
-  if (S) externalBackup();
-  await shell.openPath(file);
-  setTimeout(() => { quitting = true; app.quit(); }, 1500);
-  return file;
+// Installe maintenant : sauvegarde, installation silencieuse, redémarrage automatique d'OfficiaTech.
+function installNow() {
+  if (S) { autoBackup(); externalBackup(true); }
+  updater.install({ relaunch: true });
+  setTimeout(() => { quitting = true; closeSession(); app.exit(0); }, 800);
+  return true;
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -730,9 +717,13 @@ if (!app.requestSingleInstanceLock()) {
     createTray();
     setInterval(tick, 30000);
     powerMonitor.on('lock-screen', () => lockSession());
-    // Vérification discrète des mises à jour au démarrage.
-    setTimeout(() => { checkUpdate().then((u) => { if (u.available) send('update:available', u); }).catch(() => {}); }, 20000);
+    initUpdater();
   });
-  app.on('before-quit', () => { quitting = true; if (db) externalBackup(); });
+  app.on('before-quit', () => {
+    quitting = true;
+    if (db) externalBackup();
+    // Mise à jour téléchargée : installée en silence pendant la fermeture (sans relancer l'application).
+    if (updater && updater.state().status === 'ready' && updater.config().auto) { try { updater.install({ relaunch: false }); } catch (e) { console.error('Mise à jour', e.message); } }
+  });
   app.on('window-all-closed', () => { if (quitting || setting('minimize_to_tray') !== '1') { closeSession(); app.quit(); } });
 }

@@ -405,32 +405,42 @@ function Team() {
 function Updates() {
   const [u, setU] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [pct, setPct] = useState(null);
-  useEffect(() => on('update:progress', setPct), []);
-  const check = async () => {
-    setBusy(true);
-    try { setU(await call('update.check')); } catch (e) {
-      const info = await call('app.info').catch(() => ({}));
-      setU({ current: info.version, error: /fetch failed|ENOTFOUND|network/i.test(e.message) ? 'Pas de connexion Internet : vérification impossible pour le moment.' : e.message });
-    }
-    setBusy(false);
-  };
-  useEffect(() => { check(); }, []);
+  useEffect(() => { call('update.state').then(setU).catch(() => {}); return on('update:state', setU); }, []);
+  const check = async () => { setBusy(true); const r = await act(() => call('update.check')); setBusy(false); if (r) setU(r); };
   const install = async () => {
-    if (!(await confirmBox(`Installer OfficiaTech ${u.latest} ? L’application se fermera le temps de l’installation ; vos données sont conservées (une sauvegarde est faite avant).`, { okLabel: 'Installer' }))) return;
-    setPct(0);
-    await act(() => call('update.install', u));
+    if (!(await confirmBox(`Installer OfficiaTech ${u.version} maintenant ? L’application se ferme, s’installe en quelques secondes puis redémarre toute seule. Vos données sont conservées (une sauvegarde est faite avant).`, { okLabel: 'Redémarrer et mettre à jour' }))) return;
+    await act(() => call('update.install'));
   };
+  const setAuto = async (v) => { await act(() => call('update.setAuto', v), v ? 'Mises à jour automatiques activées' : 'Mises à jour automatiques désactivées'); setU(await call('update.state')); };
+  const st = u ? u.status : 'idle';
+  const line = !u ? 'Chargement…'
+    : st === 'checking' ? 'Recherche d’une nouvelle version…'
+      : st === 'downloading' ? `Téléchargement de la version ${u.version} : ${u.progress ?? 0} %`
+        : st === 'ready' ? `Version ${u.version} téléchargée : elle s’installera automatiquement à la fermeture d’OfficiaTech.`
+          : st === 'available' ? `Nouvelle version disponible : ${u.version}`
+            : st === 'installing' ? 'Installation en cours…'
+              : st === 'error' ? u.error
+                : st === 'uptodate' ? `Vous utilisez la dernière version${u.checkedAt ? ` (vérifié ${ago(u.checkedAt)})` : ''}.`
+                  : 'Vérification automatique au démarrage puis toutes les 4 heures.';
   return (
-    <Card title="Mises à jour" hint="Nouvelles versions publiées par le développeur">
+    <Card title="Mises à jour" hint="Publiées par le développeur sur GitHub, installées sans rien télécharger vous-même">
       <div className="row between wrap" style={{ gap: 12 }}>
-        <div><b>Version installée : {u ? u.current : '…'}</b><div className={`small ${u && u.error ? 'neg-val' : 'muted'}`}>{!u ? 'Vérification…' : u.error ? u.error : u.available ? `Nouvelle version disponible : ${u.latest}` : 'Vous utilisez la dernière version.'}</div></div>
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <b>Version installée : {u ? u.current : '…'}</b>
+          <div className={`small ${st === 'error' ? 'neg-val' : st === 'ready' ? 'pos-val' : 'muted'}`}>{line}</div>
+          {st === 'downloading' && <div style={{ height: 6, background: 'var(--panel-2)', borderRadius: 4, marginTop: 8, overflow: 'hidden' }}><div style={{ width: `${u.progress || 0}%`, height: '100%', background: 'linear-gradient(90deg,var(--accent),var(--accent-2))' }} /></div>}
+        </div>
         <div className="row" style={{ gap: 8 }}>
-          <button className="btn" disabled={busy} onClick={check}><RefreshCw size={16} className={busy ? 'spin' : ''} />Vérifier</button>
-          {u && u.available && <button className="btn primary" disabled={pct !== null} onClick={install}><DownloadCloud size={16} />{pct !== null ? `Téléchargement ${pct || 0} %` : `Installer la ${u.latest}`}</button>}
+          <button className="btn" disabled={busy || st === 'checking' || st === 'downloading'} onClick={check}><RefreshCw size={16} className={busy || st === 'checking' ? 'spin' : ''} />Rechercher</button>
+          {st === 'available' && <button className="btn primary" onClick={() => act(() => call('update.download'))}><DownloadCloud size={16} />Télécharger la {u.version}</button>}
+          {st === 'ready' && <button className="btn primary" onClick={install}><DownloadCloud size={16} />Redémarrer et mettre à jour</button>}
         </div>
       </div>
-      {u && u.available && u.notes && <div className="card mt" style={{ boxShadow: 'none', whiteSpace: 'pre-wrap' }}>{u.notes}</div>}
+      <label className="list-row mt" style={{ cursor: 'pointer' }}>
+        <input type="checkbox" checked={!u || u.auto !== false} onChange={(e) => setAuto(e.target.checked)} />
+        <div><b>Mises à jour automatiques (recommandé)</b><div className="muted small">OfficiaTech cherche les nouvelles versions sur Internet, les télécharge en arrière-plan, vérifie leur intégrité et les installe en silence à la fermeture de l’application. Les données ne sont jamais touchées.</div></div>
+      </label>
+      {u && u.notes && ['available', 'downloading', 'ready'].includes(st) && <div className="card mt" style={{ boxShadow: 'none', whiteSpace: 'pre-wrap' }}>{u.notes}</div>}
     </Card>
   );
 }

@@ -271,7 +271,13 @@ export default function App() {
     window.addEventListener('officia-lock', h);
     return () => window.removeEventListener('officia-lock', h);
   }, [lock, phase]);
-  useEffect(() => on('update:available', (u) => setUpdate(u)), []);
+  useEffect(() => {
+    call('update.state').then(setUpdate).catch(() => {});
+    return on('update:state', setUpdate);
+  }, []);
+  const installUpdate = async () => {
+    if (await confirmBox(`Installer OfficiaTech ${update.version} maintenant ? L’application se ferme, s’installe en quelques secondes puis redémarre toute seule. Vos données sont conservées (une sauvegarde est faite avant).`, { okLabel: 'Redémarrer et mettre à jour' })) call('update.install').catch((e) => toast(e.message, 'error'));
+  };
   useEffect(() => {
     const h = () => phase === 'ready' && logout();
     window.addEventListener('officia-logout', h);
@@ -342,7 +348,9 @@ export default function App() {
             </div>
             <div className="spacer" />
             <button className="search-btn" onClick={() => setPalette(true)}><Search size={16} />Rechercher partout…<kbd>Ctrl K</kbd></button>
-            {update && <button className="btn sm primary" title={`Nouvelle version ${update.latest}`} onClick={() => { setUpdate(null); go('settings', { tab: 'about' }); }}><DownloadCloud size={15} />Mise à jour {update.latest}</button>}
+            {update && update.status === 'downloading' && <span className="muted small row" style={{ gap: 6 }} title="Téléchargement de la mise à jour en arrière-plan"><DownloadCloud size={15} />{update.version} · {update.progress ?? 0} %</span>}
+            {update && update.status === 'ready' && <button className="btn sm primary" title="La mise à jour sera aussi installée automatiquement à la fermeture d’OfficiaTech" onClick={installUpdate}><DownloadCloud size={15} />Mettre à jour ({update.version})</button>}
+            {update && update.status === 'available' && !update.auto && <button className="btn sm primary" onClick={() => go('settings', { tab: 'about' })}><DownloadCloud size={15} />Mise à jour {update.version}</button>}
             <SyncChip go={go} />
             <button className="icon-btn" title="Notifications" onClick={() => setDrawer(true)}>
               <Bell size={18} />{badges.notif > 0 && <span className="count">{badges.notif > 99 ? '99+' : badges.notif}</span>}
